@@ -7,20 +7,24 @@ import { Warga, RW, Iuran, TransaksiIuran, Pengajuan, Laporan, MutasiLog, User }
 
 // Setup initial preloaded accounts
 export const SIMULATED_USERS: User[] = [
-  { id: "u0", username: "kadus", nama: "Pak Budi", role: "Admin", password: "admin123" }, // Kepala Dusun
-  { id: "u1", username: "rw01", nama: "Pak Ahmad", role: "User", rwId: "RW 01", password: "rw01" },
-  { id: "u2", username: "rw02", nama: "Ibu Ratna", role: "User", rwId: "RW 02", password: "rw02" },
-  { id: "u3", username: "rw03", nama: "Ibu Siti Aminah", role: "User", rwId: "RW 03", password: "rw03" },
-  { id: "u4", username: "rw04", nama: "Pak Bambang", role: "User", rwId: "RW 04", password: "rw04" },
-  { id: "u5", username: "rw05", nama: "Ibu Dewi", role: "User", rwId: "RW 05", password: "rw05" },
+  { id: "u0", username: "kadus", nama: "Asep Juhara", role: "Admin", password: "Joe12hara" }, // Kepala Dusun 
+  { id: "u1", username: "rw07", nama: "Pak Miftahudin", role: "User", rwId: "RW 07", password: "rw07" },
+  { id: "u2", username: "rw08", nama: "Pak Darmatin", role: "User", rwId: "RW 08", password: "rw08" },
+  { id: "u3", username: "rw09", nama: "Pak Sulam Nedi", role: "User", rwId: "RW 09", password: "rw09" },
+  { id: "u4", username: "rw13", nama: "Pak Ajang", role: "User", rwId: "RW 13", password: "rw13" },
+  { id: "u5", username: "rw15", nama: "Pak Fuad", role: "User", rwId: "RW 15", password: "rw15" },
+  { id: "u6", username: "rw16", nama: "Pak endang", role: "User", rwId: "RW 16", password: "rw16" },
+  { id: "u7", username: "rw17", nama: "Pak Jajang", role: "User", rwId: "RW 17", password: "rw17" },
 ];
 
 export const INITIAL_RWS: RW[] = [
-  { id: "RW 01", namaKetua: "Pak Ahmad", wilayah: "Dusun Sukamaju Bagian Utara", kontak: "0812-3456-7891" },
-  { id: "RW 02", namaKetua: "Ibu Ratna", wilayah: "Dusun Sukamaju Bagian Barat", kontak: "0821-2233-4455" },
-  { id: "RW 03", namaKetua: "Ibu Siti Aminah", wilayah: "Dusun Sukamaju Bagian Pusat", kontak: "0852-9988-7766" },
-  { id: "RW 04", namaKetua: "Pak Bambang", wilayah: "Dusun Sukamaju Bagian Selatan", kontak: "0877-4455-6622" },
-  { id: "RW 05", namaKetua: "Ibu Dewi", wilayah: "Dusun Sukamaju Bagian Timur", kontak: "0819-0011-2233" },
+  { id: "RW 07", namaKetua: "Pak Miftahudin", wilayah: "Dusun 3 Desa Suci", kontak: "0812-9819-2826" },
+  { id: "RW 08", namaKetua: "Pak Darmatin", wilayah: "Dusun 3 Desa Suci", kontak: "0852-2175-6060" },
+  { id: "RW 09", namaKetua: "Pak Sulam Nedi", wilayah: "Dusun 3 Desa Suci", kontak: "0813-2352-9928" },
+  { id: "RW 13", namaKetua: "Pak Ajang", wilayah: "Dusun 3 Desa Suci", kontak: "0895-3206-07565" },
+  { id: "RW 15", namaKetua: "Pak Fuad", wilayah: "Dusun 3 Desa Suci", kontak: "0813-2300-1474" },
+  { id: "RW 16", namaKetua: "Pak endang", wilayah: "Dusun 3 Desa Suci", kontak: "0819-0011-2233" },
+  { id: "RW 17", namaKetua: "Pak Jajang", wilayah: "Dusun 3 Desa Suci", kontak: "0859-7459-8866" },
 ];
 
 // Helper to generate elegant mock photos as base64 or high-quality svg patterns
@@ -47,7 +51,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "S1 Teknik",
     pekerjaan: "Wiraswasta",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 01 RW 03, Dusun Sukamaju",
+    alamat: "RT 01 RW 03, Dusun 3 Desa Suci",
     kontak: "0812-7766-5544",
     rwId: "RW 03",
     status: "Aktif",
@@ -65,7 +69,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMA",
     pekerjaan: "Ibu Rumah Tangga",
     hubungan: "Istri",
-    alamat: "RT 01 RW 03, Dusun Sukamaju",
+    alamat: "RT 01 RW 03, Dusun 3 Desa Suci",
     kontak: "",
     rwId: "RW 03",
     status: "Aktif",
@@ -83,14 +87,14 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMP",
     pekerjaan: "Pelajar",
     hubungan: "Anak",
-    alamat: "RT 01 RW 03, Dusun Sukamaju",
+    alamat: "RT 01 RW 03, Dusun 3 Desa Suci",
     kontak: "",
     rwId: "RW 03",
     status: "Aktif",
     tanggalInput: "2026-01-10",
   },
 
-  // RW 01 (Pak Ahmad's residents)
+  // RW 07 (Pak Mifrahudin residents)
   {
     id: 4,
     nik: "3374121402750001",
@@ -103,7 +107,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "Diploma III",
     pekerjaan: "Karyawan Swasta",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 03 RW 01, Dusun Sukamaju",
+    alamat: "RT 03 RW 01, Dusun 3 Desa Suci",
     kontak: "0813-2211-0099",
     rwId: "RW 01",
     status: "Aktif",
@@ -121,7 +125,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMA",
     pekerjaan: "Karyawan Swasta",
     hubungan: "Istri",
-    alamat: "RT 03 RW 01, Dusun Sukamaju",
+    alamat: "RT 03 RW 01, Dusun 3 Desa Suci",
     kontak: "",
     rwId: "RW 01",
     status: "Aktif",
@@ -141,7 +145,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SD",
     pekerjaan: "Buruh Harian Lepas",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 01 RW 02, Dusun Sukamaju",
+    alamat: "RT 01 RW 02, Dusun 3 Desa Suci",
     kontak: "0815-5555-4444",
     rwId: "RW 02",
     status: "Aktif",
@@ -159,7 +163,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SD",
     pekerjaan: "Petani",
     hubungan: "Istri",
-    alamat: "RT 01 RW 02, Dusun Sukamaju",
+    alamat: "RT 01 RW 02, Dusun 3 Desa Suci",
     kontak: "",
     rwId: "RW 02",
     status: "Aktif",
@@ -179,7 +183,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMA",
     pekerjaan: "PNS",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 02 RW 04, Dusun Sukamaju",
+    alamat: "RT 02 RW 04, Dusun 3 Desa Suci",
     kontak: "0812-9900-8811",
     rwId: "RW 04",
     status: "Aktif",
@@ -199,7 +203,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "S1 Ekonomi",
     pekerjaan: "Wiraswasta",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 04 RW 05, Dusun Sukamaju",
+    alamat: "RT 04 RW 05, Dusun 3 Desa Suci",
     kontak: "0856-1122-3344",
     rwId: "RW 05",
     status: "Aktif",
@@ -218,7 +222,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "D4 Teknik",
     pekerjaan: "Kontraktor Proyek",
     hubungan: "Lainnya",
-    alamat: "Kost Pondok Indah RT 02 RW 03, Sukamaju",
+    alamat: "Kost Pondok Indah RT 02 RW 03, 3 Desa Suci",
     kontak: "0823-8888-2221",
     rwId: "RW 03",
     status: "Sementara",
