@@ -137,7 +137,7 @@ export default function LaporanPanel({
         <div>
           <h2 className="text-xl font-semibold text-slate-800 font-display">Laporan Kegiatan & Pengaduan Warga</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Portal pendataan kegiatan RW, pelaporan musibah darurat, serta penampungan pengaduan/aspirasi warga Dusun Sukamaju.
+            Portal pendataan kegiatan RW, pelaporan musibah darurat, serta penampungan pengaduan/aspirasi warga Dusun 3 Ds. Suci.
           </p>
         </div>
 
