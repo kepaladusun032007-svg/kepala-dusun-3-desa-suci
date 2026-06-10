@@ -299,14 +299,14 @@ export default function WargaPanel({
             nik,
             kk,
             nama,
-            tempatLahir: mapped.tempatLahir || "Sukamaju",
+            tempatLahir: mapped.tempatLahir || "Ds.Suci",
             tanggalLahir,
             jk: mapped.jk || "L",
             agama: mapped.agama || "Islam",
             pendidikan: mapped.pendidikan || "SMA",
             pekerjaan: mapped.pekerjaan || "Karyawan Swasta",
             hubungan: mapped.hubungan || "Anak",
-            alamat: mapped.alamat || "Dusun Sukamaju",
+            alamat: mapped.alamat || "Dusun 3",
             kontak: mapped.kontak || "",
             rwId,
             status: mapped.status || "Aktif",
@@ -469,7 +469,7 @@ export default function WargaPanel({
     ];
     ws["!cols"] = wscols;
 
-    XLSX.writeFile(wb, `Template_Impor_Penduduk_Sukamaju.xlsx`);
+    XLSX.writeFile(wb, `Template_Impor_Penduduk_Dusun3.xlsx`);
   };
 
   // Form states (Add / Edit)
@@ -1703,7 +1703,7 @@ export default function WargaPanel({
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Alamat Lengkap Dusun (RT/RW/Kontak)</label>
                 <textarea
-                  placeholder="Mis. Dusun Sukamaju RT 02 RW 03, Kel. Sukamaju"
+                  placeholder="Mis. Dusun 3 RT 02 RW 03, Ds. Suci"
                   value={formAlamat}
                   onChange={(e) => setFormAlamat(e.target.value)}
                   className="w-full bg-slate-50 text-slate-800 text-sm px-3 py-2 rounded-lg border border-slate-200 focus:outline-none"
