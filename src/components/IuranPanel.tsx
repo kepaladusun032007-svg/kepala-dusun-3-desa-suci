@@ -652,7 +652,7 @@ export default function IuranPanel({
               <div>
                 <label className="block text-2xs font-semibold uppercase tracking-wider text-slate-400">Wilayah / Target Pembebanan</label>
                 <div className="bg-slate-50 p-2.5 rounded-lg border font-medium text-slate-700 text-sm mt-1">
-                  {filterRwId !== "Semua" ? `Kas Operasional ${filterRwId}` : "Kas Umum Dusun Sukamaju"}
+                  {filterRwId !== "Semua" ? `Kas Operasional ${filterRwId}` : "Kas Umum Wilayah RW"}
                 </div>
               </div>
 
