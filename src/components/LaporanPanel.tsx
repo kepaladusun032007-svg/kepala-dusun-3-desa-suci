@@ -403,7 +403,7 @@ export default function LaporanPanel({
           <div class="header">
             <h3>Pemerintah Kabupaten Garut</h3>
             <h2>Kantor Desa Suci - Dusun III</h2>
-            <p>Dusun III , Desa Suci, Kec. Karangpawitan, Jawa Barat 44182 | Email: kepaladusun032007@gmail.com</p>
+            <p>Jln.Syech Nuryayi , No.01 Suci, Kec. Karangpawitan, Jawa Barat 44182 | Email: kepaladusun032007@gmail.com</p>
           </div>
           
           <div class="doc-title">
@@ -443,7 +443,7 @@ export default function LaporanPanel({
       </html>
     `;
 
-    printContent(html, `rekap_laporan_Sukamaju`);
+    printContent(html, `rekap_laporan_Dusun`);
   };
 
   // Filtering reports
