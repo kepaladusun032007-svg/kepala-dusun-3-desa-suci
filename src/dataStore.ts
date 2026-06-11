@@ -8,7 +8,7 @@ import { Warga, RW, Iuran, TransaksiIuran, Pengajuan, Laporan, MutasiLog, User }
 // Setup initial preloaded accounts
 export const SIMULATED_USERS: User[] = [
   { id: "u0", username: "kadus", nama: "Asep Juhara", role: "Admin", password: "Joe12hara" }, // Kepala Dusun 
-  { id: "u1", username: "rw07", nama: "Pak Miftahudin", role: "User", rwId: "RW 07", password: "rw07" },
+  { id: "u1", username: "rw07", nama: "Pak Miftah", role: "User", rwId: "RW 07", password: "rw07" },
   { id: "u2", username: "rw08", nama: "Pak Darmatin", role: "User", rwId: "RW 08", password: "rw08" },
   { id: "u3", username: "rw09", nama: "Pak Sulam Nedi", role: "User", rwId: "RW 09", password: "rw09" },
   { id: "u4", username: "rw13", nama: "Pak Ajang", role: "User", rwId: "RW 13", password: "rw13" },
@@ -18,7 +18,7 @@ export const SIMULATED_USERS: User[] = [
 ];
 
 export const INITIAL_RWS: RW[] = [
-  { id: "RW 07", namaKetua: "Pak Miftahudin", wilayah: "Dusun 3 Desa Suci", kontak: "0812-9819-2826" },
+  { id: "RW 07", namaKetua: "Pak Miftah", wilayah: "Dusun 3 Desa Suci", kontak: "0812-9819-2826" },
   { id: "RW 08", namaKetua: "Pak Darmatin", wilayah: "Dusun 3 Desa Suci", kontak: "0852-2175-6060" },
   { id: "RW 09", namaKetua: "Pak Sulam Nedi", wilayah: "Dusun 3 Desa Suci", kontak: "0813-2352-9928" },
   { id: "RW 13", namaKetua: "Pak Ajang", wilayah: "Dusun 3 Desa Suci", kontak: "0895-3206-07565" },
