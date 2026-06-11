@@ -86,7 +86,7 @@ export default function App() {
       const user = SIMULATED_USERS.find(u => u.id === savedUserId);
       if (user) return "Selamat Datang kembali. Anda masuk sebagai: " + user.nama + " (" + user.role + ")";
     }
-    return "Selamat Datang di Portal Administrasi Dusun Sukamaju. Silakan masuk untuk mengelola sistem.";
+    return "Selamat Datang di Portal Administrasi Dusun 3 Ds. Suci. Silakan masuk untuk mengelola sistem.";
   });
 
   // --- GOOGLE SPREADSHEET AUTO CONNECTION INTEGRATION CONFIGURATION ---
@@ -396,7 +396,7 @@ export default function App() {
               <Lock className="w-6 h-6 animate-pulse" />
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight font-display">Portal Administrasi Dusun</h2>
-            <p className="text-xs text-slate-400">Sistem Informasi, Mutasi LAMPID & Kas Iuran Sukamaju</p>
+            <p className="text-xs text-slate-400">Sistem Informasi, Mutasi LAMPID & Kas Iuran RW Dusun 3</p>
           </div>
 
           <form onSubmit={handleLoginSubmit} className="space-y-4 relative z-10">
@@ -578,7 +578,7 @@ export default function App() {
                 DS
               </div>
               <div>
-                <h1 className="text-sm font-semibold tracking-wide text-white font-display">Dusun Sukamaju</h1>
+                <h1 className="text-sm font-semibold tracking-wide text-white font-display">Dusun 3 Ds. Suci</h1>
                 <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Dashboard Administrasi</span>
               </div>
             </div>
@@ -855,7 +855,7 @@ export default function App() {
                   <span className="text-[10px] font-bold tracking-widest text-emerald-300 uppercase block">DUSUN SUKAMAJU ADMINISTRASI</span>
                   <h2 className="text-2xl font-bold text-white font-display">Selamat datang kembali, {currentUser.nama}!</h2>
                   <p className="text-sm text-emerald-200 mt-1 leading-relaxed">
-                    Sistem audit kependudukan dan transparansi keuangan 5 wilayah RW. Pantau semua peristiwa LAMPID serta pengajuan bansos warga dalam satu antarmuka terenkripsi.
+                    Sistem audit kependudukan dan Management wilayah RW. Pantau semua peristiwa LAMPID serta pengajuan bansos warga dalam satu antarmuka terenkripsi.
                   </p>
                 </div>
 
