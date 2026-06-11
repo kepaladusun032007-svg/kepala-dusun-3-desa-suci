@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Warga, RW, Laporan, User, LaporanKategori } from "../types";
 import { PRESET_PHOTOS } from "../dataStore";
 import { compressImage } from "../utils/imageCompressor";
-import { Plus, Check, MapPin, Eye, FileSpreadsheet, Image as ImageIcon, Send, MessageSquare, Archive, ShieldQuestion, Trash2, Edit3, Camera, X } from "lucide-react";
+import { Plus, Check, MapPin, Eye, FileSpreadsheet, Image as ImageIcon, Send, MessageSquare, Archive, ShieldQuestion, Trash2, Edit3, Camera, X, ExternalLink } from "lucide-react";
 
 interface LaporanPanelProps {
   warga: Warga[];
@@ -61,17 +61,25 @@ export default function LaporanPanel({
   const [viewingReport, setViewingReport] = useState<Laporan | null>(null);
   const [commentText, setCommentText] = useState("");
 
+  // Lightbox state for in-app image viewing to bypass Chrome popup filters
+  const [activeLightboxImg, setActiveLightboxImg] = useState<string | null>(null);
+
   // Filtering reports
   const filteredReports = laporan.filter(l => {
-    // 1. Kategori Filter
-    const matchesKategori = filterKategori === "Semua" || l.kategori === filterKategori;
-    // 2. RW Filter / RBAC Check
+    // 1. Kategori Filter (Handle potential case mismatches)
+    const matchesKategori = filterKategori === "Semua" || 
+      String(l.kategori || "").toLowerCase() === String(filterKategori).toLowerCase();
+    // 2. RW Filter / RBAC Check with trim and lower casing for absolute robustness
     let matchesRw = false;
+    const itemRwId = String(l.rwId || "").trim().toLowerCase();
+    
     if (currentUser.role === "User") {
       // Ketua RW only sees reports in their own RW
-      matchesRw = l.rwId === currentUser.rwId;
+      const userRwId = String(currentUser.rwId || "").trim().toLowerCase();
+      matchesRw = itemRwId === userRwId;
     } else {
-      matchesRw = filterRwId === "Semua" || l.rwId === filterRwId;
+      const matchFilterRwId = String(filterRwId || "").trim().toLowerCase();
+      matchesRw = filterRwId === "Semua" || itemRwId === matchFilterRwId;
     }
     return matchesKategori && matchesRw;
   });
@@ -146,7 +154,7 @@ export default function LaporanPanel({
     setFormDeskripsi(l.deskripsi);
     setSelectedWargaReporter(l.wargaId || 0);
 
-    const reporter = warga.find(w => w.id === l.wargaId);
+    const reporter = warga.find(w => String(w.id).trim() === String(l.wargaId || '').trim());
     setSearchQuery(reporter ? reporter.nama : "");
 
     setSelectedRwReportLocation(l.rwId);
@@ -304,7 +312,7 @@ export default function LaporanPanel({
           </div>
         ) : (
           filteredReports.map((l) => {
-            const reporter = l.wargaId ? warga.find(w => w.id === l.wargaId) : null;
+            const reporter = l.wargaId ? warga.find(w => String(w.id).trim() === String(l.wargaId).trim()) : null;
             return (
               <div 
                 key={l.id} 
@@ -537,7 +545,7 @@ export default function LaporanPanel({
 
                 {selectedWargaReporter > 0 && (
                   (() => {
-                    const activeP = selectableWarga.find(w => w.id === selectedWargaReporter);
+                    const activeP = selectableWarga.find(w => String(w.id).trim() === String(selectedWargaReporter).trim());
                     if (!activeP) return null;
                     return (
                       <div className="mt-2.5 bg-indigo-50/50 border border-indigo-100 p-2.5 rounded-lg flex items-center justify-between text-xs">
@@ -700,7 +708,7 @@ export default function LaporanPanel({
                   <div className="col-span-2 border-t pt-2 mt-1">
                     <span className="text-slate-400 block mb-0.5">Pelapor Warga Terdata:</span>
                     {(() => {
-                      const rep = selectedDetailLaporan.wargaId ? warga.find(w => w.id === selectedDetailLaporan.wargaId) : null;
+                      const rep = selectedDetailLaporan.wargaId ? warga.find(w => String(w.id).trim() === String(selectedDetailLaporan.wargaId).trim()) : null;
                       if (rep) {
                         return <span className="font-bold text-slate-800">{rep.nama} (NIK {rep.nik} &bull; {rep.rwId})</span>;
                       }
@@ -726,7 +734,7 @@ export default function LaporanPanel({
                     {selectedDetailLaporan.fotoList.map((foto, idx) => (
                       <div 
                         key={idx} 
-                        onClick={() => window.open(foto)}
+                        onClick={() => setActiveLightboxImg(foto)}
                         className="h-20 border rounded-lg overflow-hidden bg-slate-100 cursor-zoom-in hover:opacity-95 shadow-2xs group relative"
                         title="Zoom Foto"
                       >
@@ -842,6 +850,57 @@ export default function LaporanPanel({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cross-browser interactive lightbox modal */}
+      {activeLightboxImg && (
+        <div 
+          className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none animate-in fade-in duration-200"
+          onClick={() => setActiveLightboxImg(null)}
+          id="custom-lightbox-portal"
+        >
+          {/* Close button with high contrast */}
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setActiveLightboxImg(null); }}
+            className="absolute top-4 right-4 bg-slate-800/80 hover:bg-slate-700/80 text-white rounded-full p-3 transition-all duration-150 border border-slate-700 hover:scale-105 shadow-md flex items-center justify-center cursor-pointer"
+            title="Tutup Preview"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Main image container */}
+          <div 
+            className="relative max-w-4xl max-h-[80vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={activeLightboxImg} 
+              alt="Pratinjau Foto Dokumentasi" 
+              className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain border border-slate-800/50 animate-in zoom-in-95 duration-200"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
+          {/* Bottom helper actions banner */}
+          <div 
+            className="mt-6 flex items-center gap-3 bg-slate-900/80 px-4 py-2.5 rounded-full border border-slate-800 text-xs backdrop-blur-xs shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-slate-400">Pratinjau Foto Dokumentasi</span>
+            <span className="h-3 w-px bg-slate-800" />
+            <a 
+              href={activeLightboxImg} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1.5 transition-colors"
+              title="Buka foto asli di tab baru"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Buka File Asli
+            </a>
           </div>
         </div>
       )}
