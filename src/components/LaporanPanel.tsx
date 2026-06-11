@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Warga, RW, Laporan, User, LaporanKategori } from "../types";
 import { PRESET_PHOTOS } from "../dataStore";
 import { Plus, Check, MapPin, Eye, FileSpreadsheet, Image as ImageIcon, Send, MessageSquare, Archive, ShieldQuestion } from "lucide-react";
@@ -38,6 +38,20 @@ export default function LaporanPanel({
   const [selectedRwReportLocation, setSelectedRwReportLocation] = useState<string>(currentUser.role === "User" ? currentUser.rwId || "RW 01" : "RW 01");
   const [formError, setFormError] = useState("");
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Commentary states
   const [viewingReport, setViewingReport] = useState<Laporan | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -55,10 +69,12 @@ export default function LaporanPanel({
     return w.status === "Aktif";
   });
 
-  const filteredWargaOptions = selectableWarga.filter(w => 
-    w.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    w.nik.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredWargaOptions = selectableWarga.filter(w => {
+    const nameStr = w.nama ? String(w.nama).toLowerCase() : "";
+    const nikStr = w.nik ? String(w.nik).toLowerCase() : "";
+    const query = searchQuery ? String(searchQuery).toLowerCase() : "";
+    return nameStr.includes(query) || nikStr.includes(query);
+  });
 
   // Handle Foto selection files
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,7 +347,7 @@ export default function LaporanPanel({
                 </div>
               </div>
 
-              <div className="relative z-25">
+              <div ref={dropdownRef} className="relative z-25">
                 <label className="block text-xs font-semibold text-slate-650">Warga Pelapor (Opsional)</label>
                 
                 <div className="relative mt-1">
@@ -409,20 +425,6 @@ export default function LaporanPanel({
                       })
                     )}
                   </div>
-                )}
-
-                {/* Backdrop to close list when clicked outside */}
-                {isDropdownOpen && (
-                  <div 
-                    className="fixed inset-0 z-10 cursor-default" 
-                    onClick={() => {
-                      if (!searchQuery && selectedWargaReporter) {
-                        const original = selectableWarga.find(w => w.id === selectedWargaReporter);
-                        if (original) setSearchQuery(original.nama);
-                      }
-                      setIsDropdownOpen(false);
-                    }} 
-                  />
                 )}
 
                 {/* Selected Resident Card indicator */}
