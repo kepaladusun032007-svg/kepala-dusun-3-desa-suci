@@ -32,6 +32,8 @@ export default function LaporanPanel({
   const [formKategori, setFormKategori] = useState<LaporanKategori>("Kegiatan");
   const [formDeskripsi, setFormDeskripsi] = useState("");
   const [selectedWargaReporter, setSelectedWargaReporter] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [formFotoList, setFormFotoList] = useState<string[]>([]);
   const [selectedRwReportLocation, setSelectedRwReportLocation] = useState<string>(currentUser.role === "User" ? currentUser.rwId || "RW 01" : "RW 01");
   const [formError, setFormError] = useState("");
@@ -52,6 +54,11 @@ export default function LaporanPanel({
     if (currentUser.role === "User" && w.rwId !== currentUser.rwId) return false;
     return w.status === "Aktif";
   });
+
+  const filteredWargaOptions = selectableWarga.filter(w => 
+    w.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    w.nik.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Handle Foto selection files
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,7 +144,7 @@ export default function LaporanPanel({
         <div>
           <h2 className="text-xl font-semibold text-slate-800 font-display">Laporan Kegiatan & Pengaduan Warga</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Portal pendataan kegiatan RW, pelaporan musibah darurat, serta penampungan pengaduan/aspirasi warga Dusun 3 Ds. Suci.
+            Portal pendataan kegiatan RW, pelaporan musibah darurat, serta penampungan pengaduan/aspirasi warga Dusun Sukamaju.
           </p>
         </div>
 
@@ -146,6 +153,7 @@ export default function LaporanPanel({
             setFormDeskripsi("");
             setFormFotoList([]);
             setSelectedWargaReporter(0);
+            setSearchQuery("");
             setFormError("");
             setIsReportModalOpen(true);
           }}
@@ -323,18 +331,116 @@ export default function LaporanPanel({
                 </div>
               </div>
 
-              <div>
+              <div className="relative z-25">
                 <label className="block text-xs font-semibold text-slate-650">Warga Pelapor (Opsional)</label>
-                <select
-                  value={selectedWargaReporter}
-                  onChange={(e) => setSelectedWargaReporter(parseInt(e.target.value) || 0)}
-                  className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2.5 rounded-lg border mt-1"
-                >
-                  <option value={0}>-- Anonim / Diwakilkan Ketua RW --</option>
-                  {selectableWarga.map((w) => (
-                    <option key={w.id} value={w.id}>{w.nama} (NIK {w.nik})</option>
-                  ))}
-                </select>
+                
+                <div className="relative mt-1">
+                  <input
+                    type="text"
+                    placeholder="🔎 Ketik nama atau NIK warga..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setIsDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2.5 pr-10 rounded-lg border focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedWargaReporter(0);
+                        setIsDropdownOpen(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+
+                {isDropdownOpen && (
+                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-lg bg-white py-1 shadow-lg border border-slate-150 text-xs">
+                    {/* Anonim option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedWargaReporter(0);
+                        setSearchQuery("");
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 transition-colors cursor-pointer border-b border-slate-100 flex flex-col ${
+                        selectedWargaReporter === 0 
+                          ? "bg-indigo-50 text-indigo-900 font-semibold" 
+                          : "hover:bg-slate-50 text-slate-600"
+                      }`}
+                    >
+                      <span className="text-xs font-semibold">-- Anonim / Diwakilkan Ketua RW --</span>
+                    </button>
+
+                    {filteredWargaOptions.length === 0 ? (
+                      <div className="px-4 py-3 text-slate-450 italic text-center">
+                        Tidak ada data warga ditemukan
+                      </div>
+                    ) : (
+                      filteredWargaOptions.map((w) => {
+                        const isSelected = w.id === selectedWargaReporter;
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedWargaReporter(w.id);
+                              setSearchQuery(w.nama);
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 transition-colors cursor-pointer border-b border-slate-50 last:border-0 flex flex-col ${
+                              isSelected 
+                                ? "bg-indigo-50 text-indigo-900 font-semibold" 
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            <span className="text-xs font-medium">{w.nama}</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">NIK: {w.nik} &bull; {w.rwId}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* Backdrop to close list when clicked outside */}
+                {isDropdownOpen && (
+                  <div 
+                    className="fixed inset-0 z-10 cursor-default" 
+                    onClick={() => {
+                      if (!searchQuery && selectedWargaReporter) {
+                        const original = selectableWarga.find(w => w.id === selectedWargaReporter);
+                        if (original) setSearchQuery(original.nama);
+                      }
+                      setIsDropdownOpen(false);
+                    }} 
+                  />
+                )}
+
+                {/* Selected Resident Card indicator */}
+                {selectedWargaReporter > 0 && (
+                  (() => {
+                    const activeP = selectableWarga.find(w => w.id === selectedWargaReporter);
+                    if (!activeP) return null;
+                    return (
+                      <div className="mt-2.5 bg-indigo-50/50 border border-indigo-100 p-2.5 rounded-lg flex items-center justify-between text-xs">
+                        <div>
+                          <p className="text-slate-800 font-semibold">{activeP.nama}</p>
+                          <p className="text-[10px] text-slate-450 mt-0.5">NIK {activeP.nik} &bull; {activeP.rwId} &bull; Status: {activeP.hubungan}</p>
+                        </div>
+                        <span className="bg-indigo-100 text-indigo-900 text-[9px] font-bold px-2 py-0.5 rounded uppercase font-sans">Pelapor Terpilih</span>
+                      </div>
+                    );
+                  })()
+                )}
               </div>
 
               <div>
