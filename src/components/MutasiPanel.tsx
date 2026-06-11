@@ -461,8 +461,8 @@ export default function MutasiPanel({
       <div className="bg-slate-800 text-slate-200 text-sm p-4 rounded-xl shadow-xs border border-slate-700 flex items-start gap-3">
         <Clock className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
         <div>
-          <strong className="text-white block font-display">Sistem Auto-Logging Kependudukan Aktif</strong>
-          Setiap pendaftaran warga baru, pecohan kartu keluarga (Pecah KK), perubahan status almarhum, atau perpindahan pemukiman di tab <span className="font-semibold text-emerald-400 font-display">Data Penduduk</span> akan otomatis didokumentasikan ke dalam jurnal mutasi ini beserta timestamp audit log yang tidak dapat diubah (immutable).
+          <strong className="text-white block font-display">Sistem Kependudukan Tingkat RW</strong>
+          Setiap pendaftaran warga baru, pecahan kartu keluarga (Pecah KK), perubahan status almarhum, atau perpindahan pemukiman di tab <span className="font-semibold text-emerald-400 font-display">Data Penduduk</span> akan otomatis didokumentasikan ke dalam jurnal mutasi ini beserta timestamp audit log yang tidak dapat diubah (immutable).
         </div>
       </div>
 
