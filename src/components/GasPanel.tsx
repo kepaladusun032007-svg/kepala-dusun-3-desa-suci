@@ -307,6 +307,18 @@ function doPost(e) {
     if (action === "sync") {
       var db = payload.db;
       
+      // Simpan foto dari kamera & galeri ke Google Drive secara otomatis
+      // untuk mencegah penolakan penyimpanan di Google Sheets cell limit (50,000 karakter)
+      try {
+        processBase64Images(db);
+      } catch (imgErr) {
+        Logger.log("Error processing images to Drive: " + imgErr.toString());
+        return ContentService.createTextOutput(JSON.stringify({ 
+          status: "error", 
+          message: "Sinkronisasi Gagal! Gagal mengunggah lampiran foto ke Google Drive Anda (" + imgErr.toString() + "). Silakan buka Spreadsheet Anda -> Ekstensi -> Apps Script. Pada menu editor Apps Script, pilih fungsi apa saja (misalnya 'getSpreadsheet') lalu klik tombol 'Jalankan' (Run) sekali. Ini akan memicu dialog dari Google untuk menyetujui dan memberikan otorisasi izin akses 'Google Drive' pada akun Google Anda agar foto bisa disimpan." 
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      
       for (var sheetName in db) {
         if (db.hasOwnProperty(sheetName)) {
           writeJsonToSheet(ss, sheetName, db[sheetName]);
@@ -338,6 +350,80 @@ function doPost(e) {
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// UPLOAD BASE64 DIREK KE GOOGLE DRIVE & AMBIL LINK DIREK UNTUK IMG TAG
+function uploadBase64ToDrive(base64Data, fileName) {
+  try {
+    var split = base64Data.split(",");
+    var contentType = "image/jpeg";
+    if (split[0]) {
+      var match = split[0].match(/data:(.*?);base64/);
+      if (match && match[1]) {
+        contentType = match[1];
+      }
+    }
+    var pureBase64 = split[1] || split[0];
+    var decoded = Utilities.base64Decode(pureBase64);
+    var blob = Utilities.newBlob(decoded, contentType, fileName);
+    
+    // Auto buat/cari folder di Google Drive pribadi milik user
+    var folderName = "Portal_Sukamaju_Lampiran_Foto";
+    var folder;
+    var folders = DriveApp.getFoldersByName(folderName);
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder(folderName);
+    }
+    
+    var file = folder.createFile(blob);
+    // Atur perijinan agar bisa diakses gratis oleh browser lewat link
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // Output url dalam bentuk link asset langsung (Direct image link) agar render sempurna di tag img
+    return "https://lh3.googleusercontent.com/d/" + file.getId();
+  } catch (err) {
+    Logger.log("Gagal mengunggah foto ke Google Drive: " + err.toString());
+    throw new Error("Gagal mengunggah foto ke Google Drive: " + err.toString());
+  }
+}
+
+// SCAN SELURUH ATTACHMENT DI PENGAJUAN DAN LAPORAN
+function processBase64Images(db) {
+  var count = 0;
+  
+  // 1. Scan rincian pengajuan
+  if (db.pengajuan && db.pengajuan.length > 0) {
+    db.pengajuan.forEach(function(item) {
+      if (item.fotoList && Array.isArray(item.fotoList)) {
+        item.fotoList = item.fotoList.map(function(foto, index) {
+          if (foto && typeof foto === "string" && foto.indexOf("data:") === 0) {
+            count++;
+            var fileName = "pengajuan_" + item.id + "_" + index + "_" + new Date().getTime() + ".jpg";
+            return uploadBase64ToDrive(foto, fileName);
+          }
+          return foto;
+        });
+      }
+    });
+  }
+  
+  // 2. Scan rincian laporan
+  if (db.laporan && db.laporan.length > 0) {
+    db.laporan.forEach(function(item) {
+      if (item.fotoList && Array.isArray(item.fotoList)) {
+        item.fotoList = item.fotoList.map(function(foto, index) {
+          if (foto && typeof foto === "string" && foto.indexOf("data:") === 0) {
+            count++;
+            var fileName = "laporan_" + item.id + "_" + index + "_" + new Date().getTime() + ".jpg";
+            return uploadBase64ToDrive(foto, fileName);
+          }
+          return foto;
+        });
+      }
+    });
   }
 }
 
