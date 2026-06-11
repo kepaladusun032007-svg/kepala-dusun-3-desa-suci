@@ -855,7 +855,7 @@ export default function App() {
                   <span className="text-[10px] font-bold tracking-widest text-emerald-300 uppercase block">DUSUN SUKAMAJU ADMINISTRASI</span>
                   <h2 className="text-2xl font-bold text-white font-display">Selamat datang kembali, {currentUser.nama}!</h2>
                   <p className="text-sm text-emerald-200 mt-1 leading-relaxed">
-                    Sistem audit kependudukan dan Management wilayah RW. Pantau semua peristiwa LAMPID serta pengajuan bansos warga dalam satu antarmuka terenkripsi.
+                    Sistem audit kependudukan dan Management wilayah RW. Pantau semua peristiwa LAMPID serta pengajuan warga dalam satu antarmuka terenkripsi.
                   </p>
                 </div>
 
