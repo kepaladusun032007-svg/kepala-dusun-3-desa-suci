@@ -401,9 +401,9 @@ export default function LaporanPanel({
         </head>
         <body>
           <div class="header">
-            <h3>Pemerintah Kabupaten Kuningan</h3>
-            <h2>Kantor Desa Sukamaju - Dusun Sukamaju</h2>
-            <p>Dusun III Sukamaju, Desa Sukamaju, Kec. Kuningan, Jawa Barat 45553 | Email: dsn3_sukamaju@kuningankab.go.id</p>
+            <h3>Pemerintah Kabupaten Garut</h3>
+            <h2>Kantor Desa Suci - Dusun III</h2>
+            <p>Dusun III , Desa Suci, Kec. Karangpawitan, Jawa Barat 44182 | Email: kepaladusun032007@gmail.com</p>
           </div>
           
           <div class="doc-title">
@@ -435,8 +435,8 @@ export default function LaporanPanel({
             <div></div>
             <div class="sign-col">
               <div>Kuningan, ${formattedDate}</div>
-              <div>Kepala Dusun Sukamaju,</div>
-              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">SURYANA PRATAMA</div>
+              <div>Kepala Dusun III,</div>
+              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">ASEP JUHARA</div>
             </div>
           </div>
         </body>
