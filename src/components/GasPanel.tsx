@@ -231,7 +231,7 @@ export default function GasPanel({ db, setDb, triggerNotification }: GasPanelPro
   // Apps script code source
   const appsScriptCode = `/**
  * =========================================================================
- * GOOGLE APPS SCRIPT WEB APP BACKEND - SYSTEM PORTAL DUSUN SUKAMAJU
+ * GOOGLE APPS SCRIPT WEB APP BACKEND - SYSTEM PORTAL DUSUN 3 DESA SUCI
  * =========================================================================
  * Github / AI Studio Integration
  * 
