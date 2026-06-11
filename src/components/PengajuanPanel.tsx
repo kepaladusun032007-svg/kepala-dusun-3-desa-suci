@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Warga, RW, Pengajuan, User, PengajuanStatus, PengajuanJenis } from "../types";
 import { PRESET_PHOTOS } from "../dataStore";
 import { Plus, CheckCircle2, XCircle, AlertCircle, FileText, Image as ImageIcon, Send, Trash2, Edit3, MessageSquare } from "lucide-react";
@@ -36,6 +36,20 @@ export default function PengajuanPanel({
   const [formFotoList, setFormFotoList] = useState<string[]>([]);
   const [formError, setFormError] = useState("");
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Approval review states
   const [viewingSubmit, setViewingSubmit] = useState<Pengajuan | null>(null);
   const [adminComment, setAdminComment] = useState("");
@@ -60,10 +74,12 @@ export default function PengajuanPanel({
     return true;
   });
 
-  const filteredWargaOptions = selectableWarga.filter(w => 
-    w.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    w.nik.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredWargaOptions = selectableWarga.filter(w => {
+    const nameStr = w.nama ? String(w.nama).toLowerCase() : "";
+    const nikStr = w.nik ? String(w.nik).toLowerCase() : "";
+    const query = searchQuery ? String(searchQuery).toLowerCase() : "";
+    return nameStr.includes(query) || nikStr.includes(query);
+  });
 
   // Handle Photo input (converts image files to base64, up to 3)
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,13 +135,20 @@ export default function PengajuanPanel({
   // Create submission
   const handleCreateSubmission = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedApplicantWargaId) {
+      setFormError("Silakan pilih warga pemohon bantuan terlebih dahulu.");
+      return;
+    }
     if (!formDeskripsi) {
       setFormError("Deskripsi detail kebutuhan bantuan kependudukan wajib diisi.");
       return;
     }
 
     const applicant = warga.find(w => w.id === selectedApplicantWargaId);
-    if (!applicant) return;
+    if (!applicant) {
+      setFormError("Warga yang Anda pilih tidak valid atau berkasnya tidak ditemukan.");
+      return;
+    }
 
     const newId = pengajuan.length > 0 ? Math.max(...pengajuan.map(p => p.id)) + 1 : 1;
     const newProposal: Pengajuan = {
@@ -341,7 +364,7 @@ export default function PengajuanPanel({
                 <div className="p-2.5 bg-rose-50 border border-rose-150 text-rose-700 text-xs rounded-lg">{formError}</div>
               )}
 
-              <div className="relative z-20">
+              <div ref={dropdownRef} className="relative z-20">
                 <label className="block text-xs font-semibold text-slate-650">Pilih Warga Pemohon Bantuan *</label>
                 <div className="relative mt-1">
                   <input
@@ -401,19 +424,6 @@ export default function PengajuanPanel({
                       })
                     )}
                   </div>
-                )}
-                
-                {isDropdownOpen && (
-                  <div 
-                    className="fixed inset-0 z-10 cursor-default" 
-                    onClick={() => {
-                      if (!searchQuery && selectedApplicantWargaId) {
-                        const original = selectableWarga.find(w => w.id === selectedApplicantWargaId);
-                        if (original) setSearchQuery(original.nama);
-                      }
-                      setIsDropdownOpen(false);
-                    }} 
-                  />
                 )}
 
                 {selectedApplicantWargaId > 0 && (
