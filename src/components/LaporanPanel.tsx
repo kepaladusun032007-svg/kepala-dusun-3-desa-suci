@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Warga, RW, Laporan, User, LaporanKategori } from "../types";
 import { PRESET_PHOTOS } from "../dataStore";
 import { compressImage } from "../utils/imageCompressor";
-import { Plus, Check, MapPin, Eye, FileSpreadsheet, Image as ImageIcon, Send, MessageSquare, Archive, ShieldQuestion, Trash2, Edit3, Camera, X, ExternalLink } from "lucide-react";
+import { Plus, Check, MapPin, Eye, FileSpreadsheet, Image as ImageIcon, Send, MessageSquare, Archive, ShieldQuestion, Trash2, Edit3, Camera, X, ExternalLink, Download } from "lucide-react";
 
 interface LaporanPanelProps {
   warga: Warga[];
@@ -857,7 +857,7 @@ export default function LaporanPanel({
       {/* Cross-browser interactive lightbox modal */}
       {activeLightboxImg && (
         <div 
-          className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none animate-in fade-in duration-200"
+          className="fixed inset-0 z-[110] bg-slate-950/95 flex flex-col items-center justify-center p-4 select-none"
           onClick={() => setActiveLightboxImg(null)}
           id="custom-lightbox-portal"
         >
@@ -865,7 +865,7 @@ export default function LaporanPanel({
           <button 
             type="button"
             onClick={(e) => { e.stopPropagation(); setActiveLightboxImg(null); }}
-            className="absolute top-4 right-4 bg-slate-800/80 hover:bg-slate-700/80 text-white rounded-full p-3 transition-all duration-150 border border-slate-700 hover:scale-105 shadow-md flex items-center justify-center cursor-pointer"
+            className="absolute top-4 right-4 bg-slate-800/80 hover:bg-slate-700/80 text-white rounded-full p-3 transition-all duration-150 border border-slate-750 hover:scale-105 shadow-md flex items-center justify-center cursor-pointer"
             title="Tutup Preview"
           >
             <X className="w-5 h-5" />
@@ -873,34 +873,80 @@ export default function LaporanPanel({
 
           {/* Main image container */}
           <div 
-            className="relative max-w-4xl max-h-[80vh] flex items-center justify-center"
+            className="relative max-w-4xl max-h-[75vh] flex items-center justify-center p-2 bg-slate-900 border border-slate-800 rounded-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <img 
               src={activeLightboxImg} 
               alt="Pratinjau Foto Dokumentasi" 
-              className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain border border-slate-800/50 animate-in zoom-in-95 duration-200"
+              className="max-w-full max-h-[70vh] rounded-lg shadow-2xl object-contain"
               referrerPolicy="no-referrer"
             />
           </div>
 
           {/* Bottom helper actions banner */}
           <div 
-            className="mt-6 flex items-center gap-3 bg-slate-900/80 px-4 py-2.5 rounded-full border border-slate-800 text-xs backdrop-blur-xs shadow-lg"
+            className="mt-6 flex flex-wrap items-center justify-center gap-4 bg-slate-900 px-5 py-3 rounded-full border border-slate-800 text-xs shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="text-slate-400">Pratinjau Foto Dokumentasi</span>
-            <span className="h-3 w-px bg-slate-800" />
-            <a 
-              href={activeLightboxImg} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1.5 transition-colors"
+            <span className="text-slate-400 font-medium">Opsi Foto Dokumentasi:</span>
+            <span className="h-3 w-px bg-slate-800 hidden sm:inline" />
+            
+            {/* Safe Chrome open-in-new-tab using same-origin about:blank buffer */}
+            <button
+              type="button"
+              onClick={() => {
+                if (activeLightboxImg.startsWith("data:")) {
+                  const win = window.open();
+                  if (win) {
+                    win.document.write(`
+                      <html>
+                        <head>
+                          <title>Pratinjau Laporan Foto</title>
+                          <style>
+                            body { margin: 0; background: #020617; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                            img { max-width: 95%; max-height: 95vh; object-fit: contain; border-radius: 8px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); }
+                          </style>
+                        </head>
+                        <body>
+                          <img src="${activeLightboxImg}" alt="Foto Laporan" />
+                        </body>
+                      </html>
+                    `);
+                    win.document.close();
+                  } else {
+                    alert("Pop-up diblokir oleh browser Anda. Izinkan pop-up untuk membuka foto asli.");
+                  }
+                } else {
+                  window.open(activeLightboxImg, "_blank");
+                }
+              }}
+              className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Buka foto asli di tab baru"
             >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Buka File Asli
-            </a>
+              <ExternalLink className="w-4 h-4" />
+              Buka di Tab Baru
+            </button>
+
+            <span className="h-3 w-px bg-slate-800" />
+
+            {/* Direct down-load to bypass frame constraints */}
+            <button
+              type="button"
+              onClick={() => {
+                const link = document.createElement("a");
+                link.href = activeLightboxImg;
+                link.download = `dokumentasi-laporan-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Unduh foto dokumentasi langsung ke perangkat Anda"
+            >
+              <Download className="w-4 h-4" />
+              Unduh Gambar
+            </button>
           </div>
         </div>
       )}
