@@ -330,7 +330,7 @@ export default function MutasiPanel({
           <div class="header">
             <h3>Pemerintah Kabupaten Garut</h3>
             <h2>Kantor Desa Sukamaju - Dusun III</h2>
-            <p>Dusun III Suci, Desa Suci, Kec. Karangpawitan, Jawa Barat 44182 | Email: kepaladusun032007@gmail.com</p>
+            <p>Jln. Syech Nuryayi, No.01, Suci. Karangpawitan, Jawa Barat 44182 | Email: kepaladusun032007@gmail.com</p>
           </div>
           
           <div class="doc-title">
