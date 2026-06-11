@@ -524,8 +524,7 @@ export default function IuranPanel({
             <div class="sign-col">
               <div>Garut, ${dateFormatted}</div>
               <div>Bendahara RW</div>
-              
-              <div style="font-weight: ; text-decoration: underline; text-transform: uppercase;">________________________________</div>
+              <div style="text-transform: uppercase;">...............................</div>
             </div>
           </div>
         </body>
