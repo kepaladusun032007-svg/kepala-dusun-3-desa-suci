@@ -26,14 +26,33 @@ export const INITIAL_RWS: RW[] = [
   { id: "RW 16", namaKetua: "Pak endang", wilayah: "Dusun 3 Desa Suci", kontak: "0819-0011-2233" },
   { id: "RW 17", namaKetua: "Pak Jajang", wilayah: "Dusun 3 Desa Suci", kontak: "0859-7459-8866" },
 ];
+// Helper to compile elegant mock photos as safe Base64-encoded SVG data URIs
+// This resolves the issue where Chrome/Safari render un-encoded raw SVGs as completely blank
+function svgToBase64(svg: string): string {
+  try {
+    return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg.trim())));
+  } catch (e) {
+    // Fallback URL encoded
+    return "data:image/svg+xml;utf8," + encodeURIComponent(svg.trim());
+  }
+}
 
-// Helper to generate elegant mock photos as base64 or high-quality svg patterns
+const rutilahu1Svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='#fef2f2'/><path d='M80,220 L320,220 L320,140 L80,140 Z' fill='#fee2e2' stroke='#f87171' stroke-width='4'/><path d='M60,140 L200,50 L340,140 Z' fill='#fca5a5' stroke='#ef4444' stroke-width='4'/><rect x='120' y='160' width='40' height='60' fill='#b91c1c'/><rect x='220' y='160' width='50' height='40' fill='#f87171'/><text x='50%' y='85%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='#991b1b'>Kondisi Rumah Rawan Roboh (Rutilahu)</text></svg>`;
+
+const rutilahu2Svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='#fffbeb'/><rect x='100' y='130' width='200' height='100%' fill='#fef3c7' stroke='#fbbf24' stroke-width='3'/><path d='M80,130 L200,60 L320,130 Z' fill='#f59e0b'/><text x='50%' y='85%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='15' fill='#92400e'>Dinding Retak dan Atap Bocor</text></svg>`;
+
+const jalanRusakSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='#f3f4f6'/><path d='M10,180 Q100,100 200,180 T390,180' fill='none' stroke='#9ca3af' stroke-width='20'/><circle cx='120' cy='150' r='25' fill='#4b5563'/><circle cx='240' cy='170' r='30' fill='#374151'/><circle cx='300' cy='140' r='15' fill='#4b5563'/><text x='50%' y='85%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='#1f2937'>Jalan Berlubang - RW 02</text></svg>`;
+
+const kerjaBaktiSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='#ecfdf5'/><circle cx='100' cy='150' r='30' fill='#10b981'/><circle cx='200' cy='150' r='35' fill='#059669'/><circle cx='300' cy='150' r='30' fill='#10b981'/><rect x='80' y='180' width='240' height='40' rx='10' fill='#047857'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='#ffffff' font-weight='bold'>Kerja Bakti Bersama</text><text x='50%' y='85%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='#065f46'>Kegiatan Pembersihan Selokan</text></svg>`;
+
+const posyanduSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='#eff6ff'/><circle cx='200' cy='140' r='60' fill='#93c5fd'/><path d='M170,140 L230,140 M200,111 L200,169' stroke='#2563eb' stroke-width='16' stroke-linecap='round'/><text x='50%' y='85%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='15' fill='#1e40af' font-weight='bold'>Kegiatan Bulanan Posyandu</text></svg>`;
+
 export const PRESET_PHOTOS = {
-  rutilahu1: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='%23fef2f2'/><path d='M80,220 L320,220 L320,140 L80,140 Z' fill='%23fee2e2' stroke='%23f87171' stroke-width='4'/><path d='M60,140 L200,50 L340,140 Z' fill='%23fca5a5' stroke='%23ef4444' stroke-width='4'/><rect x='120' y='160' width='40' height='60' fill='%23b91c1c'/><rect x='220' y='160' width='50' height='40' fill='%23f87171'/><text x='50%25' y='85%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%23991b1b'>Kondisi Rumah Rawan Roboh (Rutilahu)</text></svg>",
-  rutilahu2: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='%23fffbeb'/><rect x='100' y='130' width='200' height='100%' fill='%23fef3c7' stroke='%23fbbf24' stroke-width='3'/><path d='M80,130 L200,60 L320,130 Z' fill='%23f59e0b'/><text x='50%25' y='85%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='15' fill='%2392400e'>Dinding Retak dan Atap Bocor</text></svg>",
-  jalanRusak: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='%23f3f4f6'/><path d='M10,180 Q100,100 200,180 T390,180' fill='none' stroke='%239ca3af' stroke-width='20'/><circle cx='120' cy='150' r='25' fill='%234b5563'/><circle cx='240' cy='170' r='30' fill='%23374151'/><circle cx='300' cy='140' r='15' fill='%234b5563'/><text x='50%25' y='85%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%231f2937'>Jalan Berlubang - RW 02</text></svg>",
-  kerjaBakti: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='%23ecfdf5'/><circle cx='100' cy='150' r='30' fill='%2310b981'/><circle cx='200' cy='150' r='35' fill='%23059669'/><circle cx='300' cy='150' r='30' fill='%2310b981'/><rect x='80' y='180' width='240' height='40' rx='10' fill='%23047857'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%23ffffff' font-weight='bold'>Kerja Bakti Bersama</text><text x='50%25' y='85%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%23065f46'>Kegiatan Pembersihan Selokan</text></svg>",
-  posyandu: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='%23eff6ff'/><circle cx='200' cy='140' r='60' fill='%2393c5fd'/><path d='M170,140 L230,140 M200,111 L200,169' stroke='%232563eb' stroke-width='16' stroke-linecap='round'/><text x='50%25' y='85%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='15' fill='%231e40af' font-weight='bold'>Kegiatan Bulanan Posyandu</text></svg>"
+  rutilahu1: svgToBase64(rutilahu1Svg),
+  rutilahu2: svgToBase64(rutilahu2Svg),
+  jalanRusak: svgToBase64(jalanRusakSvg),
+  kerjaBakti: svgToBase64(kerjaBaktiSvg),
+  posyandu: svgToBase64(posyanduSvg)
 };
 
 // Seed Warga
@@ -51,7 +70,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "S1 Teknik",
     pekerjaan: "Wiraswasta",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 01 RW 03, Dusun 3 Desa Suci",
+    alamat: "RT 01 RW 03, Dusun Sukamaju",
     kontak: "0812-7766-5544",
     rwId: "RW 03",
     status: "Aktif",
@@ -69,7 +88,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMA",
     pekerjaan: "Ibu Rumah Tangga",
     hubungan: "Istri",
-    alamat: "RT 01 RW 03, Dusun 3 Desa Suci",
+    alamat: "RT 01 RW 03, Dusun Sukamaju",
     kontak: "",
     rwId: "RW 03",
     status: "Aktif",
@@ -87,14 +106,14 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMP",
     pekerjaan: "Pelajar",
     hubungan: "Anak",
-    alamat: "RT 01 RW 03, Dusun 3 Desa Suci",
+    alamat: "RT 01 RW 03, Dusun Sukamaju",
     kontak: "",
     rwId: "RW 03",
     status: "Aktif",
     tanggalInput: "2026-01-10",
   },
 
-  // RW 07 (Pak Mifrahudin residents)
+  // RW 01 (Pak Ahmad's residents)
   {
     id: 4,
     nik: "3374121402750001",
@@ -107,7 +126,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "Diploma III",
     pekerjaan: "Karyawan Swasta",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 03 RW 01, Dusun 3 Desa Suci",
+    alamat: "RT 03 RW 01, Dusun Sukamaju",
     kontak: "0813-2211-0099",
     rwId: "RW 01",
     status: "Aktif",
@@ -125,7 +144,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMA",
     pekerjaan: "Karyawan Swasta",
     hubungan: "Istri",
-    alamat: "RT 03 RW 01, Dusun 3 Desa Suci",
+    alamat: "RT 03 RW 01, Dusun Sukamaju",
     kontak: "",
     rwId: "RW 01",
     status: "Aktif",
@@ -145,7 +164,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SD",
     pekerjaan: "Buruh Harian Lepas",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 01 RW 02, Dusun 3 Desa Suci",
+    alamat: "RT 01 RW 02, Dusun Sukamaju",
     kontak: "0815-5555-4444",
     rwId: "RW 02",
     status: "Aktif",
@@ -163,7 +182,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SD",
     pekerjaan: "Petani",
     hubungan: "Istri",
-    alamat: "RT 01 RW 02, Dusun 3 Desa Suci",
+    alamat: "RT 01 RW 02, Dusun Sukamaju",
     kontak: "",
     rwId: "RW 02",
     status: "Aktif",
@@ -183,7 +202,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "SMA",
     pekerjaan: "PNS",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 02 RW 04, Dusun 3 Desa Suci",
+    alamat: "RT 02 RW 04, Dusun Sukamaju",
     kontak: "0812-9900-8811",
     rwId: "RW 04",
     status: "Aktif",
@@ -203,7 +222,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "S1 Ekonomi",
     pekerjaan: "Wiraswasta",
     hubungan: "Kepala Keluarga",
-    alamat: "RT 04 RW 05, Dusun 3 Desa Suci",
+    alamat: "RT 04 RW 05, Dusun Sukamaju",
     kontak: "0856-1122-3344",
     rwId: "RW 05",
     status: "Aktif",
@@ -222,7 +241,7 @@ const PARSED_INITIAL_WARGA: Warga[] = [
     pendidikan: "D4 Teknik",
     pekerjaan: "Kontraktor Proyek",
     hubungan: "Lainnya",
-    alamat: "Kost Pondok Indah RT 02 RW 03, 3 Desa Suci",
+    alamat: "Kost Pondok Indah RT 02 RW 03, Sukamaju",
     kontak: "0823-8888-2221",
     rwId: "RW 03",
     status: "Sementara",
@@ -354,7 +373,62 @@ export function getDatabase(): AppDatabase {
     return db;
   }
   try {
-    return JSON.parse(data);
+    const db = JSON.parse(data);
+    // Safe coercion/normalization of record attributes to prevent strict equality failures
+    if (Array.isArray(db.warga)) {
+      db.warga = db.warga.map((w: any) => ({
+        ...w,
+        id: Number(w.id),
+        kk: String(w.kk || "").trim(),
+        nik: String(w.nik || "").trim()
+      }));
+    }
+    if (Array.isArray(db.pengajuan)) {
+      db.pengajuan = db.pengajuan.map((p: any) => {
+        let fList = p.fotoList;
+        if (typeof fList === "string") {
+          try { fList = JSON.parse(fList); } catch (e) { fList = []; }
+        }
+        return {
+          ...p,
+          id: Number(p.id),
+          wargaId: Number(p.wargaId),
+          rwId: String(p.rwId || "").trim(),
+          fotoList: Array.isArray(fList) ? fList : []
+        };
+      });
+    }
+    if (Array.isArray(db.laporan)) {
+      db.laporan = db.laporan.map((l: any) => {
+        let fList = l.fotoList;
+        if (typeof fList === "string") {
+          try { fList = JSON.parse(fList); } catch (e) { fList = []; }
+        }
+        return {
+          ...l,
+          id: Number(l.id),
+          wargaId: l.wargaId ? Number(l.wargaId) : undefined,
+          rwId: String(l.rwId || "").trim(),
+          fotoList: Array.isArray(fList) ? fList : []
+        };
+      });
+    }
+    if (Array.isArray(db.iuran)) {
+      db.iuran = db.iuran.map((i: any) => ({
+        ...i,
+        id: Number(i.id),
+        wargaId: Number(i.wargaId)
+      }));
+    }
+    if (Array.isArray(db.transaksi)) {
+      db.transaksi = db.transaksi.map((t: any) => ({
+        ...t,
+        id: Number(t.id),
+        wargaId: Number(t.wargaId),
+        iuranId: Number(t.iuranId)
+      }));
+    }
+    return db;
   } catch (e) {
     console.error("Failed to parse database from LocalStorage", e);
     return {
@@ -437,3 +511,5 @@ export function logDemographyEvent(
   saveDatabase(updatedDb);
   return updatedDb;
 }
+
+
