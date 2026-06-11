@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Warga, RW, Pengajuan, User, PengajuanStatus, PengajuanJenis } from "../types";
 import { PRESET_PHOTOS } from "../dataStore";
 import { compressImage } from "../utils/imageCompressor";
-import { Plus, CheckCircle2, XCircle, AlertCircle, FileText, Image as ImageIcon, Send, Trash2, Edit3, MessageSquare, Camera, Eye, X, ExternalLink, Download } from "lucide-react";
+import { Plus, CheckCircle2, XCircle, AlertCircle, FileText, Image as ImageIcon, Send, Trash2, Edit3, MessageSquare, Camera, Eye, X, ExternalLink, Download, Printer } from "lucide-react";
 
 interface PengajuanPanelProps {
   warga: Warga[];
@@ -61,6 +61,399 @@ export default function PengajuanPanel({
 
   // Lightbox view state for attachments to bypass Chrome popup blocks
   const [activeLightboxImg, setActiveLightboxImg] = useState<string | null>(null);
+
+  // Helper to trigger isolated iframe-based native printing of styled official documents
+  const triggerHtmlDownload = (htmlContent: string, fileNamePrefix: string) => {
+    try {
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${fileNamePrefix}_${new Date().toISOString().slice(0, 10)}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Download fallback failed", e);
+    }
+  };
+
+  const printContent = (htmlContent: string, fileNamePrefix: string = "dokumen") => {
+    const isInsideIframe = window.self !== window.top;
+    
+    // Always trigger download as a seamless fallback if inside iframe, 
+    // and also try printing via iframe to let them print in new tab perfectly
+    if (isInsideIframe) {
+      triggerHtmlDownload(htmlContent, fileNamePrefix);
+    }
+
+    try {
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "absolute";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+      
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+      }
+      
+      setTimeout(() => {
+        try {
+          const innerDoc = iframe.contentWindow?.document;
+          const imgElements = innerDoc?.querySelectorAll('img') || [];
+          const imageCount = imgElements.length;
+          
+          const runPrint = () => {
+            try {
+              iframe.contentWindow?.focus();
+              iframe.contentWindow?.print();
+              setTimeout(() => {
+                if (iframe.parentNode) {
+                  document.body.removeChild(iframe);
+                }
+              }, 1500);
+            } catch (pErr) {
+              console.error("Print call failed", pErr);
+              if (iframe.parentNode) {
+                document.body.removeChild(iframe);
+              }
+            }
+          };
+
+          if (imageCount === 0) {
+            runPrint();
+          } else {
+            let loadedCount = 0;
+            const checkLoad = () => {
+              loadedCount++;
+              if (loadedCount === imageCount) {
+                runPrint();
+              }
+            };
+            imgElements.forEach((img: any) => {
+              if (img.complete) {
+                checkLoad();
+              } else {
+                img.onload = checkLoad;
+                img.onerror = checkLoad; // don't block print if an image fails to load
+              }
+            });
+            // Set safety fallback timer of 4 seconds so it prints anyway even if loading gets stuck
+            setTimeout(() => {
+              if (loadedCount < imageCount) {
+                runPrint();
+              }
+            }, 4000);
+          }
+        } catch (printErr) {
+          console.error("Iframe printing failed:", printErr);
+          if (!isInsideIframe) {
+            triggerHtmlDownload(htmlContent, fileNamePrefix);
+          }
+          if (iframe.parentNode) {
+            document.body.removeChild(iframe);
+          }
+        }
+      }, 500);
+    } catch (err) {
+      console.error("System-level print block:", err);
+      if (!isInsideIframe) {
+        triggerHtmlDownload(htmlContent, fileNamePrefix);
+      }
+    }
+
+    if (isInsideIframe) {
+      setTimeout(() => {
+        alert("💡 TIPS CETAK PORTAL SUKAMAJU:\n\nKarena terhalang batasan keamanan Sandbox Browser (iFrame), berkas resmi siap cetak ini TElah BERHASIL DIUNDUH ke komputer Anda sebagai file HTML mandiri!\n\nCara Mencetak:\n1. Buka berkas HTML hasil unduhan tersebut.\n2. Tekan Ctrl+P (Cmd+P di Mac OS) lalu pilih 'Simpan sebagai PDF' atau cetak langsung menggunakan printer fisik Anda.\n\nAlternatif:\nKlik tombol 'Open in New Tab' di kanan atas layar pratinjau Anda untuk menggunakan tombol cetak bawaan secara langsung!");
+      }, 500);
+    }
+  };
+
+  const printSinglePengajuan = (item: Pengajuan) => {
+    const applicantWarga = warga.find(w => String(w.id).trim() === String(item.wargaId).trim());
+    const rwName = item.rwId || applicantWarga?.rwId || "-";
+    
+    const formattedDate = new Date(item.tanggal).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+
+    const photoHtml = item.fotoList && item.fotoList.length > 0 
+      ? `<div style="margin-top: 15px; page-break-inside: avoid;">
+          <span style="font-weight: bold; font-size: 10pt; text-transform: uppercase; color: #475569; display: block; margin-bottom: 5px;">Dokumentasi Foto Lapangan:</span>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            ${item.fotoList.map(foto => `<img src="${foto}" style="width: 140px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />`).join("")}
+          </div>
+         </div>`
+      : "";
+
+    const responseHtml = item.komentar 
+      ? `<div style="margin-top: 15px; padding: 12px; background-color: #f8fafc; border-left: 4px solid #059669; border-radius: 4px; page-break-inside: avoid;">
+          <strong style="font-size: 10pt; display: block; color: #1e1b4b; margin-bottom: 4px;">Tanggapan & Keputusan Pembina:</strong>
+          <p style="margin: 0; font-size: 10pt; color: #334155;">${item.komentar}</p>
+         </div>`
+      : "";
+
+    const html = `
+      <html>
+        <head>
+          <title>Surat Pengajuan Sos #${item.id}</title>
+          <style>
+            body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 40px; line-height: 1.5; font-size: 11pt; }
+            .header { text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 8px; margin-bottom: 25px; }
+            .header h3 { margin: 0; font-size: 13pt; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; font-weight: 500; }
+            .header h2 { margin: 4px 0; font-size: 16pt; text-transform: uppercase; font-weight: bold; color: #000; }
+            .header p { margin: 0; font-size: 9pt; font-style: italic; color: #64748b; }
+            
+            .doc-title { text-align: center; margin-bottom: 25px; }
+            .doc-title h4 { margin: 0; font-size: 12pt; text-transform: uppercase; font-weight: bold; text-decoration: underline; }
+            .doc-title p { margin: 4px 0 0 0; font-size: 10pt; font-family: monospace; color: #475569; }
+            
+            .section-title { font-weight: bold; font-size: 9.5pt; text-transform: uppercase; color: #475569; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 10px; margin-top: 20px; display: block; letter-spacing: 0.5px; }
+            
+            .grid-info { display: grid; grid-template-columns: 150px 10px 1fr; gap: 6px 12px; font-size: 10.5pt; margin-bottom: 15px; }
+            .grid-label { color: #64748b; }
+            .grid-value { font-weight: 500; }
+            
+            .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 8.5pt; font-weight: bold; text-transform: uppercase; }
+            .badge-kirim { background-color: #dbeafe; color: #1e40af; }
+            .badge-verifikasi { background-color: #fef3c7; color: #92400e; }
+            .badge-setuju { background-color: #d1fae5; color: #065f46; }
+            .badge-tolak { background-color: #fee2e2; color: #991b1b; }
+            
+            .desc-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; font-style: italic; font-size: 10.5pt; color: #334155; margin-top: 10px; line-height: 1.6; }
+            
+            .footer-signs { margin-top: 60px; display: grid; grid-template-columns: 200px 1fr 200px; gap: 20px; text-align: center; font-size: 10.5pt; page-break-inside: avoid; }
+            .sign-col { display: flex; flex-direction: column; justify-content: space-between; height: 110px; }
+            
+            @media print {
+              body { padding: 10px; margin: 0; }
+              button { display: none; }
+              img { max-width: 100%; height: auto !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h3>Pemerintah Kabupaten Kuningan</h3>
+            <h2>Kantor Desa Sukamaju - Dusun Sukamaju</h2>
+            <p>Dusun III Sukamaju, Desa Sukamaju, Kec. Kuningan, Jawa Barat 45553 | Email: dsn3_sukamaju@kuningankab.go.id</p>
+          </div>
+          
+          <div class="doc-title">
+            <h4>SURAT PENGANTAR USULAN BANTUAN SOSIAL</h4>
+            <p>Nomor: 460 / ${item.id} / DS-Sukamaju / VI / 2026</p>
+          </div>
+          
+          <span class="section-title">Informasi Registrasi Berkas</span>
+          <div class="grid-info">
+            <div class="grid-label">ID Pengajuan</div><div>:</div><div class="grid-value" style="font-family: monospace; font-weight: bold;">#${item.id}</div>
+            <div class="grid-label">Tanggal Pengajuan</div><div>:</div><div class="grid-value">${formattedDate}</div>
+            <div class="grid-label">Jenis Usulan</div><div>:</div><div class="grid-value" style="font-weight: bold;">${
+              item.jenis === "Rutilahu" ? "Rehabilitasi Rumah Tidak Layak Huni (Rutilahu)" :
+              item.jenis === "Pembangunan" ? "Pembangunan Infrastruktur Lingkungan" : "Bantuan Sembako & Jaminan Sosial"
+            }</div>
+            <div class="grid-label">Status Kelayakan</div><div>:</div><div class="grid-value">
+              <span class="badge ${
+                item.status === "Kirim" ? "badge-kirim" :
+                item.status === "Verifikasi" ? "badge-verifikasi" :
+                item.status === "Setuju" ? "badge-setuju" : "badge-tolak"
+              }">${
+                item.status === "Kirim" ? "Baru / Diajukan" :
+                item.status === "Verifikasi" ? "Verifikasi Lapangan" :
+                item.status === "Setuju" ? "Disetujui" : "Tidak Disetujui"
+              }</span>
+            </div>
+          </div>
+
+          <span class="section-title">Biodata Pemohon Bantuan</span>
+          <div class="grid-info">
+            <div class="grid-label">Nama Lengkap</div><div>:</div><div class="grid-value" style="font-size:11.5pt; text-transform: uppercase; font-weight:bold;">${applicantWarga ? applicantWarga.nama : "-"}</div>
+            <div class="grid-label">Nomor NIK</div><div>:</div><div class="grid-value" style="font-family: monospace; letter-spacing: 0.5px;">${applicantWarga ? applicantWarga.nik : "-"}</div>
+            <div class="grid-label">Asal Wilayah</div><div>:</div><div class="grid-value">${rwName} (Dusun III Sukamaju)</div>
+            <div class="grid-label">Hubungan Keluarga</div><div>:</div><div class="grid-value">${applicantWarga ? applicantWarga.hubungan : "Kepala Keluarga"}</div>
+            <div class="grid-label">Status Pekerjaan</div><div>:</div><div class="grid-value">${applicantWarga ? applicantWarga.pekerjaan : "-"}</div>
+          </div>
+
+          <span class="section-title">Deskripsi Lengkap Usulan & Kondisi Aktual</span>
+          <p style="margin: 0 0 5px 0; font-size: 10pt; color: #475569; font-style: italic;">Pernyataan permohonan tertulis yang diajukan oleh pemohon:</p>
+          <div class="desc-box">
+            "${item.deskripsi}"
+          </div>
+
+          ${photoHtml}
+          ${responseHtml}
+
+          <p style="font-size: 9.5pt; margin-top: 30px; line-height: 1.6; color: #475569;">
+            Demikian berkas pengajuan bantuan sosial kependudukan ini dibuat secara transparan untuk digunakan sebagai dasar verifikasi data penerima bantuan sosial kependudukan di Desa Sukamaju.
+          </p>
+
+          <div class="footer-signs">
+            <div class="sign-col">
+              <div>Pemohon,</div>
+              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">${applicantWarga ? applicantWarga.nama : "Warga"}</div>
+            </div>
+            <div></div>
+            <div class="sign-col">
+              <div>Kuningan, ${formattedDate}</div>
+              <div>Kepala Dusun Sukamaju,</div>
+              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">SURYANA PRATAMA</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    printContent(html, `surat_pengajuan_#${item.id}_Sukamaju`);
+  };
+
+  const printListPengajuan = () => {
+    const formattedDate = new Date().toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+
+    const tableRows = filteredSubmissions.map((item, idx) => {
+      const applicantWarga = warga.find(w => String(w.id).trim() === String(item.wargaId).trim());
+      const rwName = item.rwId || applicantWarga?.rwId || "-";
+      const fotoHtmlCol = item.fotoList && item.fotoList.length > 0
+        ? `<div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;">
+            ${item.fotoList.map(foto => `<img src="${foto}" style="width: 42px; height: 32px; object-fit: cover; border-radius: 3px; border: 1px solid #cbd5e1;" />`).join("")}
+           </div>`
+        : `<span style="color: #94a3b8; font-size: 8pt;">Tidak ada</span>`;
+
+      return `
+        <tr style="page-break-inside: avoid;">
+          <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 8.5pt;">${idx + 1}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 8.5pt; font-weight: bold;">${applicantWarga ? applicantWarga.nama : "Dihapus"}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 8pt; font-family: monospace;">${applicantWarga ? applicantWarga.nik : "-"}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 8pt;">${rwName}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 8pt;">${
+            item.jenis === "Rutilahu" ? "Rutilahu" :
+            item.jenis === "Pembangunan" ? "Infrastruktur" : "Bansos Sembako"
+          }</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 8pt;">${item.tanggal.substring(0, 10)}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 8pt; font-weight: bold;">
+            ${
+              item.status === "Kirim" ? "Diajukan" :
+              item.status === "Verifikasi" ? "Verifikasi" :
+              item.status === "Setuju" ? "Disetujui" : "Ditolak"
+            }
+          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 8pt; color: #475569;">${item.deskripsi.substring(0, 80)}${item.deskripsi.length > 80 ? '...' : ''}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">${fotoHtmlCol}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const summaryStats = `
+      <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+        <div style="flex: 1; min-width: 120px; background-color: #f1f5f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center;">
+          <span style="font-size: 8pt; text-transform: uppercase; color: #64748b; font-weight: bold; display: block;">Total Pengajuan</span>
+          <strong style="font-size: 14pt; color: #1e293b;">${filteredSubmissions.length} Berkas</strong>
+        </div>
+        <div style="flex: 1; min-width: 120px; background-color: #eff6ff; padding: 8px 12px; border-radius: 6px; border: 1px solid #bfdbfe; text-align: center;">
+          <span style="font-size: 8pt; text-transform: uppercase; color: #1e40af; font-weight: bold; display: block;">Baru</span>
+          <strong style="font-size: 14pt; color: #1d4ed8;">${filteredSubmissions.filter(item => item.status === "Kirim").length}</strong>
+        </div>
+        <div style="flex: 1; min-width: 120px; background-color: #fffbeb; padding: 8px 12px; border-radius: 6px; border: 1px solid #fef3c7; text-align: center;">
+          <span style="font-size: 8pt; text-transform: uppercase; color: #92400e; font-weight: bold; display: block;">Verifikasi</span>
+          <strong style="font-size: 14pt; color: #b45309;">${filteredSubmissions.filter(item => item.status === "Verifikasi").length}</strong>
+        </div>
+        <div style="flex: 1; min-width: 120px; background-color: #ecfdf5; padding: 8px 12px; border-radius: 6px; border: 1px solid #a7f3d0; text-align: center;">
+          <span style="font-size: 8pt; text-transform: uppercase; color: #065f46; font-weight: bold; display: block;">Disetujui</span>
+          <strong style="font-size: 14pt; color: #047857;">${filteredSubmissions.filter(item => item.status === "Setuju").length}</strong>
+        </div>
+        <div style="flex: 1; min-width: 120px; background-color: #fef2f2; padding: 8px 12px; border-radius: 6px; border: 1px solid #fecaca; text-align: center;">
+          <span style="font-size: 8pt; text-transform: uppercase; color: #991b1b; font-weight: bold; display: block;">Ditolak</span>
+          <strong style="font-size: 14pt; color: #b91c1c;">${filteredSubmissions.filter(item => item.status === "Tolak").length}</strong>
+        </div>
+      </div>
+    `;
+
+    const html = `
+      <html>
+        <head>
+          <title>Rekapitulasi Pengajuan Bantuan Sosial</title>
+          <style>
+            body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 30px; line-height: 1.4; font-size: 9.5pt; }
+            .header { text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 8px; margin-bottom: 25px; }
+            .header h3 { margin: 0; font-size: 13pt; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; font-weight: 500; }
+            .header h2 { margin: 4px 0; font-size: 16pt; text-transform: uppercase; font-weight: bold; color: #000; }
+            .header p { margin: 0; font-size: 9pt; font-style: italic; color: #64748b; }
+            
+            .doc-title { text-align: center; margin-bottom: 20px; }
+            .doc-title h4 { margin: 0; font-size: 11.5pt; text-transform: uppercase; font-weight: bold; }
+            .doc-title p { margin: 4px 0 0 0; font-size: 9pt; color: #475569; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 30px; }
+            th { background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 10px 8px; font-size: 9pt; font-weight: bold; text-align: center; color: #334155; }
+            
+            .footer-signs { margin-top: 40px; display: grid; grid-template-columns: 1fr 200px; gap: 20px; text-align: center; font-size: 10pt; page-break-inside: avoid; }
+            .sign-col { display: flex; flex-direction: column; justify-content: space-between; height: 100px; }
+            
+            @media print {
+              body { padding: 10px; margin: 0; }
+              button { display: none; }
+              img { max-width: 100%; height: auto !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h3>Pemerintah Kabupaten Kuningan</h3>
+            <h2>Kantor Desa Sukamaju - Dusun Sukamaju</h2>
+            <p>Dusun III Sukamaju, Desa Sukamaju, Kec. Kuningan, Jawa Barat 45553 | Email: dsn3_sukamaju@kuningankab.go.id</p>
+          </div>
+          
+          <div class="doc-title">
+            <h4>LAPORAN REKAPITULASI PROGRAM BANTUAN SOSIAL KEPENDUDUKAN</h4>
+            <p>Filter Kategori: Kategori ${activeTab === "Semua" ? "Semua Berkas" : "Status: " + activeTab} &bull; Dicetak per Tanggal: ${formattedDate}</p>
+          </div>
+
+          ${summaryStats}
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 4%;">No</th>
+                <th style="width: 14%;">Nama Pemohon</th>
+                <th style="width: 12%;">NIK</th>
+                <th style="width: 6%;">Sektor</th>
+                <th style="width: 12%;">Jenis Bantuan</th>
+                <th style="width: 8%;">Tgl Pengajuan</th>
+                <th style="width: 8%;">Status Kelayakan</th>
+                <th style="width: 22%;">Deskripsi Kondisi & Kebutuhan Aktual</th>
+                <th style="width: 14%;">Foto Dokumentasi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+
+          <div class="footer-signs">
+            <div></div>
+            <div class="sign-col">
+              <div>Kuningan, ${formattedDate}</div>
+              <div>Kepala Dusun Sukamaju,</div>
+              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">SURYANA PRATAMA</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printContent(html, `rekap_pengajuan_Sukamaju`);
+  };
 
   // Filter pengajuan based on role restraints
   const filteredSubmissions = pengajuan.filter(p => {
@@ -269,15 +662,27 @@ export default function PengajuanPanel({
           </p>
         </div>
 
-        {currentUser.role === "User" && (
+        <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
           <button
-            onClick={openProposalModal}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm px-4 py-2.5 rounded-lg transition-colors cursor-pointer self-start md:self-auto"
+            onClick={printListPengajuan}
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-905 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer shadow-xs border border-slate-700"
+            title="Cetak Rekap PDF Daftar Pengajuan"
+            id="btn-print-list-pengajuan"
           >
-            <Plus className="w-4 h-4" />
-            Buat Pengajuan Baru
+            <Printer className="w-3.5 h-3.5 text-emerald-400" />
+            Cetak PDF Rekap
           </button>
-        )}
+
+          {currentUser.role === "User" && (
+            <button
+              onClick={openProposalModal}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Buat Pengajuan Baru
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Structured tabs for Status Tracking */}
@@ -792,6 +1197,16 @@ export default function PengajuanPanel({
                     Tinjau Validasi
                   </button>
                 )}
+
+                <button
+                  onClick={() => printSinglePengajuan(selectedDetailSubmission)}
+                  className="px-4 py-1.5 bg-indigo-650 hover:bg-indigo-750 text-white font-bold text-xs rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors"
+                  title="Unduh / Cetak Surat Rekomendasi Resmi"
+                  id="btn-print-single-pengajuan"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Cetak Surat PDF
+                </button>
 
                 <button
                   onClick={() => setSelectedDetailSubmission(null)}
