@@ -29,6 +29,8 @@ export default function PengajuanPanel({
   // Form states
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [selectedApplicantWargaId, setSelectedApplicantWargaId] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [formJenis, setFormJenis] = useState<PengajuanJenis>("Rutilahu");
   const [formDeskripsi, setFormDeskripsi] = useState("");
   const [formFotoList, setFormFotoList] = useState<string[]>([]);
@@ -57,6 +59,11 @@ export default function PengajuanPanel({
     }
     return true;
   });
+
+  const filteredWargaOptions = selectableWarga.filter(w => 
+    w.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    w.nik.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Handle Photo input (converts image files to base64, up to 3)
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,7 +106,9 @@ export default function PengajuanPanel({
       alert("Belum ada data warga terdaftar untuk didaftarkan sebagai pemohon bantuan.");
       return;
     }
-    setSelectedApplicantWargaId(selectableWarga[0].id);
+    const firstW = selectableWarga[0];
+    setSelectedApplicantWargaId(firstW.id);
+    setSearchQuery(firstW.nama);
     setFormJenis("Rutilahu");
     setFormDeskripsi("");
     setFormFotoList([]);
@@ -332,17 +341,97 @@ export default function PengajuanPanel({
                 <div className="p-2.5 bg-rose-50 border border-rose-150 text-rose-700 text-xs rounded-lg">{formError}</div>
               )}
 
-              <div>
+              <div className="relative z-20">
                 <label className="block text-xs font-semibold text-slate-650">Pilih Warga Pemohon Bantuan *</label>
-                <select
-                  value={selectedApplicantWargaId}
-                  onChange={(e) => setSelectedApplicantWargaId(parseInt(e.target.value))}
-                  className="w-full bg-slate-50 text-slate-800 text-sm px-3 py-2.5 rounded-lg border mt-1"
-                >
-                  {selectableWarga.map((w) => (
-                    <option key={w.id} value={w.id}>{w.nama} (NIK {w.nik} - {w.rwId})</option>
-                  ))}
-                </select>
+                <div className="relative mt-1">
+                  <input
+                    type="text"
+                    placeholder="🔎 Ketik nama atau NIK warga..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setIsDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2.5 pr-10 rounded-lg border focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedApplicantWargaId(0);
+                        setIsDropdownOpen(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+
+                {isDropdownOpen && (
+                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-lg bg-white py-1 shadow-lg border border-slate-150 text-xs">
+                    {filteredWargaOptions.length === 0 ? (
+                      <div className="px-4 py-3 text-slate-450 italic text-center">
+                        Tidak ada data warga ditemukan
+                      </div>
+                    ) : (
+                      filteredWargaOptions.map((w) => {
+                        const isSelected = w.id === selectedApplicantWargaId;
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedApplicantWargaId(w.id);
+                              setSearchQuery(w.nama);
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 transition-colors cursor-pointer border-b border-slate-50 last:border-0 flex flex-col ${
+                              isSelected 
+                                ? "bg-emerald-50 text-emerald-800 font-semibold" 
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            <span className="text-xs font-medium">{w.nama}</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">NIK: {w.nik} &bull; {w.rwId} &bull; Hubungan: {w.hubungan}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+                
+                {isDropdownOpen && (
+                  <div 
+                    className="fixed inset-0 z-10 cursor-default" 
+                    onClick={() => {
+                      if (!searchQuery && selectedApplicantWargaId) {
+                        const original = selectableWarga.find(w => w.id === selectedApplicantWargaId);
+                        if (original) setSearchQuery(original.nama);
+                      }
+                      setIsDropdownOpen(false);
+                    }} 
+                  />
+                )}
+
+                {selectedApplicantWargaId > 0 && (
+                  (() => {
+                    const activeP = selectableWarga.find(w => w.id === selectedApplicantWargaId);
+                    if (!activeP) return null;
+                    return (
+                      <div className="mt-2.5 bg-emerald-50/50 border border-emerald-100 p-2.5 rounded-lg flex items-center justify-between text-xs">
+                        <div>
+                          <p className="text-slate-800 font-semibold">{activeP.nama}</p>
+                          <p className="text-[10px] text-slate-450 mt-0.5">NIK {activeP.nik} &bull; {activeP.rwId} &bull; Hubungan: {activeP.hubungan}</p>
+                        </div>
+                        <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded uppercase">Terpilih</span>
+                      </div>
+                    );
+                  })()
+                )}
+
                 <span className="text-[10px] text-slate-400 mt-1 block">Hanya menampilkan warga berstatus aktif di wilayah kinerjamu.</span>
               </div>
 
