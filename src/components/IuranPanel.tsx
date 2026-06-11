@@ -424,7 +424,7 @@ export default function IuranPanel({
     const html = `
       <html>
         <head>
-          <title>Laporan Keuangan Bulanan Dusun Sukamaju</title>
+          <title>Laporan Keuangan Bulanan Dusun III</title>
           <style>
             body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 30px; line-height: 1.4; font-size: 9.5pt; }
             .header { text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 8px; margin-bottom: 25px; }
@@ -524,7 +524,7 @@ export default function IuranPanel({
             <div class="sign-col">
               <div>Garut, ${dateFormatted}</div>
               <div>Bendahara RW,</div>
-              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">(                                   )</div>
+              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">____________________________________</div>
             </div>
           </div>
         </body>
