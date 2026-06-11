@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { Warga, RW, Iuran, TransaksiIuran, User } from "../types";
 import { addTransaction } from "../dataStore";
-import { Plus, ToggleLeft, ToggleRight, DollarSign, ArrowUpCircle, ArrowDownCircle, Landmark, Calendar, Search, Filter, FileSpreadsheet, Eye } from "lucide-react";
+import { Plus, ToggleLeft, ToggleRight, DollarSign, ArrowUpCircle, ArrowDownCircle, Landmark, Calendar, Search, Filter, FileSpreadsheet, Eye, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface IuranPanelProps {
@@ -240,6 +240,300 @@ export default function IuranPanel({
     return `${months[index]} ${parts[0]}`;
   };
 
+  // Helper to trigger isolated iframe-based native printing of styled official documents
+  const triggerHtmlDownload = (htmlContent: string, fileNamePrefix: string) => {
+    try {
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${fileNamePrefix}_${new Date().toISOString().slice(0, 10)}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Download fallback failed", e);
+    }
+  };
+
+  const printContent = (htmlContent: string, fileNamePrefix: string = "dokumen") => {
+    const isInsideIframe = window.self !== window.top;
+    
+    // Always trigger download as a seamless fallback if inside iframe, 
+    // and also try printing via iframe to let them print in new tab perfectly
+    if (isInsideIframe) {
+      triggerHtmlDownload(htmlContent, fileNamePrefix);
+    }
+
+    try {
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "absolute";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+      
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+      }
+      
+      setTimeout(() => {
+        try {
+          const innerDoc = iframe.contentWindow?.document;
+          const imgElements = innerDoc?.querySelectorAll('img') || [];
+          const imageCount = imgElements.length;
+          
+          const runPrint = () => {
+            try {
+              iframe.contentWindow?.focus();
+              iframe.contentWindow?.print();
+              setTimeout(() => {
+                if (iframe.parentNode) {
+                  document.body.removeChild(iframe);
+                }
+              }, 1500);
+            } catch (pErr) {
+              console.error("Print call failed", pErr);
+              if (iframe.parentNode) {
+                document.body.removeChild(iframe);
+              }
+            }
+          };
+
+          if (imageCount === 0) {
+            runPrint();
+          } else {
+            let loadedCount = 0;
+            const checkLoad = () => {
+              loadedCount++;
+              if (loadedCount === imageCount) {
+                runPrint();
+              }
+            };
+            imgElements.forEach((img: any) => {
+              if (img.complete) {
+                checkLoad();
+              } else {
+                img.onload = checkLoad;
+                img.onerror = checkLoad; // don't block print if an image fails to load
+              }
+            });
+            // Set safety fallback timer of 4 seconds so it prints anyway even if loading gets stuck
+            setTimeout(() => {
+              if (loadedCount < imageCount) {
+                runPrint();
+              }
+            }, 4000);
+          }
+        } catch (printErr) {
+          console.error("Iframe printing failed:", printErr);
+          if (!isInsideIframe) {
+            triggerHtmlDownload(htmlContent, fileNamePrefix);
+          }
+          if (iframe.parentNode) {
+            document.body.removeChild(iframe);
+          }
+        }
+      }, 500);
+    } catch (err) {
+      console.error("System-level print block:", err);
+      if (!isInsideIframe) {
+        triggerHtmlDownload(htmlContent, fileNamePrefix);
+      }
+    }
+
+    if (isInsideIframe) {
+      setTimeout(() => {
+        alert("💡 TIPS CETAK PORTAL SUKAMAJU:\n\nKarena terhalang batasan keamanan Sandbox Browser (iFrame), berkas laporan pertanggungjawaban keuangan resmi siap cetak ini telah BERHASIL DIUNDUH ke komputer Anda sebagai file HTML mandiri!\n\nCara Mencetak:\n1. Buka berkas HTML hasil unduhan tersebut.\n2. Tekan Ctrl+P (Cmd+P di Mac OS) lalu pilih 'Simpan sebagai PDF' atau cetak langsung menggunakan printer fisik Anda.\n\nAlternatif:\nKlik tombol 'Open in New Tab' di kanan atas layar pratinjau Anda untuk menggunakan tombol cetak bawaan secara langsung!");
+      }, 500);
+    }
+  };
+
+  const printFinanceReportPDF = () => {
+    const wilayahStr = filterRwId === "Semua" ? "Dusun III Sukamaju (Semua RW)" : filterRwId;
+    const dateFormatted = new Date().toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+
+    const monthlyTransactions = filteredTransactions.filter(
+      t => t.tanggal.substring(0, 7) === filterMonth
+    );
+
+    const monthlyInflowTransactions = monthlyTransactions.filter(t => t.jenis === "Masuk");
+    const monthlyOutflowTransactions = monthlyTransactions.filter(t => t.jenis === "Keluar");
+
+    const monthlyInflowTotal = monthlyInflowTransactions.reduce((acc, t) => acc + t.jumlah, 0);
+    const monthlyOutflowTotal = monthlyOutflowTransactions.reduce((acc, t) => acc + t.jumlah, 0);
+    const monthlyNetBalance = monthlyInflowTotal - monthlyOutflowTotal;
+
+    let inflowRows = "";
+    if (monthlyInflowTransactions.length === 0) {
+      inflowRows = `
+        <tr>
+          <td colspan="5" style="border: 1px solid #cbd5e1; padding: 12px; text-align: center; font-size: 8.5pt; color: #64748b; font-style: italic;">
+            Belum ada transaksi penerimaan kas atau iuran masuk untuk bulan ini.
+          </td>
+        </tr>
+      `;
+    } else {
+      inflowRows = monthlyInflowTransactions.map((item, idx) => {
+        let contributorName = "Pengeluaran Umum / Kas Umum";
+        if (item.wargaId > 0) {
+          contributorName = warga.find(w => w.id === item.wargaId)?.nama || "Warga";
+        }
+        return `
+          <tr style="page-break-inside: avoid;">
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 8.5pt;">${idx + 1}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; font-size: 8pt; font-family: monospace; text-align: center;">${item.tanggal.substring(0, 10)}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; font-size: 8.5pt; font-weight: bold; color: #014737;">${contributorName}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; font-size: 8pt; color: #334155;">${item.keterangan}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-size: 8.5pt; font-family: monospace; font-weight: bold; color: #15803d;">+ ${formatRupiah(item.jumlah)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    let outflowRows = "";
+    if (monthlyOutflowTransactions.length === 0) {
+      outflowRows = `
+        <tr>
+          <td colspan="4" style="border: 1px solid #cbd5e1; padding: 12px; text-align: center; font-size: 8.5pt; color: #64748b; font-style: italic;">
+            Belum ada pengeluaran operasional kas belanja untuk bulan ini.
+          </td>
+        </tr>
+      `;
+    } else {
+      outflowRows = monthlyOutflowTransactions.map((item, idx) => {
+        return `
+          <tr style="page-break-inside: avoid;">
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 8.5pt;">${idx + 1}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; font-size: 8pt; font-family: monospace; text-align: center;">${item.tanggal.substring(0, 10)}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; font-size: 8pt; color: #334155;">${item.keterangan}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-size: 8.5pt; font-family: monospace; font-weight: bold; color: #b91c1c;">- ${formatRupiah(item.jumlah)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    const html = `
+      <html>
+        <head>
+          <title>Laporan Keuangan Bulanan Dusun Sukamaju</title>
+          <style>
+            body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 30px; line-height: 1.4; font-size: 9.5pt; }
+            .header { text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 8px; margin-bottom: 25px; }
+            .header h3 { margin: 0; font-size: 13pt; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; font-weight: 500; }
+            .header h2 { margin: 4px 0; font-size: 16pt; text-transform: uppercase; font-weight: bold; color: #000; }
+            .header p { margin: 0; font-size: 9pt; font-style: italic; color: #64748b; }
+            
+            .doc-title { text-align: center; margin-bottom: 25px; }
+            .doc-title h4 { margin: 0; font-size: 12pt; text-transform: uppercase; font-weight: bold; color: #0f172a; }
+            .doc-title p { margin: 4px 0 0 0; font-size: 9pt; color: #475569; }
+            
+            .stats-container { display: flex; gap: 12px; margin-bottom: 25px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .stat-box { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background-color: #f8fafc; }
+            .stat-title { font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 4px; }
+            .stat-value { font-size: 13pt; font-weight: bold; font-family: monospace; display: block; }
+            
+            .section-title { font-size: 10pt; font-weight: bold; text-transform: uppercase; color: #334155; margin-top: 25px; margin-bottom: 10px; border-left: 4px solid #1e293b; padding-left: 8px; }
+            
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th { background-color: #f1f5f9; border: 1px solid #cbd5e1; padding: 8px 6px; font-size: 8.5pt; font-weight: bold; text-align: center; color: #475569; }
+            
+            .footer-signs { margin-top: 40px; display: grid; grid-template-columns: 1fr 220px; gap: 20px; text-align: center; font-size: 9.5pt; page-break-inside: avoid; }
+            .sign-col { display: flex; flex-direction: column; justify-content: space-between; height: 110px; }
+            
+            @media print {
+              body { padding: 10px; margin: 0; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h3>Pemerintah Kabupaten Garut</h3>
+            <h2>Kantor Desa Suci - Dusun III</h2>
+            <p>Jln.Syech Nuryayi, No.01 Suci, Karangpawitan, Jawa Barat 44182 | Email: kepaladusun032007@gmail.com</p>
+          </div>
+          
+          <div class="doc-title">
+            <h4>LAPORAN BULANAN REALISASI KAS & IURAN RW</h4>
+            <p>Periode: ${monthNameIndo(filterMonth)} &bull; Wilayah: ${wilayahStr} &bull; Dicetak: ${dateFormatted}</p>
+          </div>
+
+          <div class="stats-container">
+            <div class="stat-box" style="background-color: #f0fdf4; border-color: #bbf7d0;">
+              <span class="stat-title" style="color: #166534;">Uang Masuk / Iuran Bulan Ini</span>
+              <span class="stat-value" style="color: #15803d;">${formatRupiah(monthlyInflowTotal)}</span>
+            </div>
+            <div class="stat-box" style="background-color: #fef2f2; border-color: #fecaca;">
+              <span class="stat-title" style="color: #991b1b;">Belanja / Keluar Bulan Ini</span>
+              <span class="stat-value" style="color: #b91c1c;">${formatRupiah(monthlyOutflowTotal)}</span>
+            </div>
+            <div class="stat-box" style="background-color: #eff6ff; border-color: #bfdbfe;">
+              <span class="stat-title" style="color: #1e40af;">Saldo Bersih Bulan Ini</span>
+              <span class="stat-value" style="color: #1d4ed8;">${formatRupiah(monthlyNetBalance)}</span>
+            </div>
+            <div class="stat-box" style="background-color: #ecfdf5; border-color: #a7f3d0;">
+              <span class="stat-title" style="color: #065f46; font-weight: bold;">Jumlah Total Saldo RW</span>
+              <span class="stat-value" style="color: #047857; font-weight: bold;">${formatRupiah(netBalance)}</span>
+            </div>
+          </div>
+
+          <!-- Pemasukan Table -->
+          <div class="section-title">TABEL A: RINCIAN PENERIMAAN KAS / IURAN WARGA (BULAN INI)</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 5%;">No</th>
+                <th style="width: 15%;">Tgl Transaksi</th>
+                <th style="width: 25%;">Nama Pembayar (Warga)</th>
+                <th style="width: 35%;">Keterangan Perincian</th>
+                <th style="width: 20%;">Nominal Masuk</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${inflowRows}
+            </tbody>
+          </table>
+
+          <!-- Pengeluaran Table -->
+          <div class="section-title">TABEL B: RINCIAN PENGELUARAN KAS OPERASIONAL (BULAN INI)</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 5%;">No</th>
+                <th style="width: 15%;">Tgl Transaksi</th>
+                <th style="width: 60%;">Keterangan Pengeluaran Belanja</th>
+                <th style="width: 20%;">Nominal Keluar</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${outflowRows}
+            </tbody>
+          </table>
+
+          <div class="footer-signs">
+            <div></div>
+            <div class="sign-col">
+              <div>Garut, ${dateFormatted}</div>
+              <div>Bendahara RW,</div>
+              <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">(........................)</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printContent(html, `Laporan_Keuangan_Kependudukan_${filterMonth}_Dusun`);
+  };
+
   // Excel (.xlsx) Report Exporter utilizing SheetJS
   const exportFinanceToExcel = () => {
     // 1. Prepare transactions ledger workbook sheet
@@ -295,7 +589,7 @@ export default function IuranPanel({
         <div>
           <h2 className="text-xl font-semibold text-slate-800 font-display">Sistem Manajemen Kas & Iuran Warga</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Pengelolaan iuran bulanan wajib, pencatatan transaksi kas masuk/keluar, pelacakan tunggakan (piutang), dan export Excel laporan.
+            Pengelolaan iuran bulanan wajib, pencatatan transaksi kas masuk/keluar, pelacakan tunggakan (piutang), dan laporan bulanan PDF terstruktur.
           </p>
         </div>
 
@@ -309,11 +603,21 @@ export default function IuranPanel({
           </button>
           
           <button
+            id="btn-print-finance-pdf"
+            onClick={printFinanceReportPDF}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-medium text-sm px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
+            title="Cetak Laporan Bulanan Realisasi Kas"
+          >
+            <Printer className="w-4 h-4 text-emerald-400" />
+            Cetak Laporan Bulanan (PDF)
+          </button>
+
+          <button
             onClick={exportFinanceToExcel}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            Laporan Bulanan (.xlsx)
+            Unduh Excel (.xlsx)
           </button>
         </div>
       </div>
@@ -652,7 +956,7 @@ export default function IuranPanel({
               <div>
                 <label className="block text-2xs font-semibold uppercase tracking-wider text-slate-400">Wilayah / Target Pembebanan</label>
                 <div className="bg-slate-50 p-2.5 rounded-lg border font-medium text-slate-700 text-sm mt-1">
-                  {filterRwId !== "Semua" ? `Kas Operasional ${filterRwId}` : "Kas Umum Wilayah RW"}
+                  {filterRwId !== "Semua" ? `Kas Operasional ${filterRwId}` : "Kas Umum Dusun Sukamaju"}
                 </div>
               </div>
 
