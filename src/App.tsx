@@ -71,6 +71,7 @@ export default function App() {
   const [switchPasswordInput, setSwitchPasswordInput] = useState<string>("");
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [showSwitchPassword, setShowSwitchPassword] = useState<boolean>(false);
+  const [showSimulatedCredentials, setShowSimulatedCredentials] = useState<boolean>(false);
 
   // System Navigation Tabs
   const [activeTab, setActiveTab] = useState<"dashboard" | "warga" | "mutasi" | "iuran" | "pengajuan" | "laporan" | "gas">("dashboard");
@@ -85,7 +86,7 @@ export default function App() {
       const user = SIMULATED_USERS.find(u => u.id === savedUserId);
       if (user) return "Selamat Datang kembali. Anda masuk sebagai: " + user.nama + " (" + user.role + ")";
     }
-    return "Selamat Datang di Portal Administrasi Dusun 3 Ds.Suci. Silakan masuk untuk mengelola sistem.";
+    return "Selamat Datang di Portal Administrasi Dusun Sukamaju. Silakan masuk untuk mengelola sistem.";
   });
 
   // --- GOOGLE SPREADSHEET AUTO CONNECTION INTEGRATION CONFIGURATION ---
@@ -100,6 +101,8 @@ export default function App() {
 
     const gasUrl = localStorage.getItem("GAS_WEB_APP_URL");
     if (gasUrl && gasUrl.trim() !== "") {
+      // Tandai ada perubahan lokal yang sedang disinkronisasi
+      localStorage.setItem("GAS_HAS_UNSYNCED_CHANGES", "true");
       setIsSyncingDash(true);
       setDashSyncError(null);
       fetch(gasUrl, {
@@ -121,6 +124,7 @@ export default function App() {
           setLastSyncTime(nowStr);
           localStorage.setItem("GAS_LAST_SYNC_TIME", nowStr);
           localStorage.setItem("GAS_AUTO_SYNC", "true"); // keep compatible
+          localStorage.setItem("GAS_HAS_UNSYNCED_CHANGES", "false"); // Bersihkan tanda karena sukses sinkron
           triggerNotification("Pembaruan data otomatis disimpan langsung ke Google Spreadsheet!");
           setDashSyncError(null);
         } else {
@@ -143,6 +147,13 @@ export default function App() {
       setDashSyncError("Silakan masukkan URL Web App Google Apps Script terlebih dahulu.");
       return;
     }
+    
+    const hasUnsynced = localStorage.getItem("GAS_HAS_UNSYNCED_CHANGES");
+    if (hasUnsynced === "true") {
+      const confirmPull = window.confirm("⚠️ Perhatian: Anda memiliki data atau lampiran foto baru yang belum berhasil disinkronkan ke Google Spreadsheet. Menarik data (Pull) sekarang akan menimpa dan menghapus data baru tersebut secara permanen. Apakah Anda yakin ingin melanjutkan?");
+      if (!confirmPull) return;
+    }
+
     setIsSyncingDash(true);
     setDashSyncError(null);
     try {
@@ -206,7 +217,10 @@ export default function App() {
   // Pull latest Google Sheets database on startup
   useEffect(() => {
     const gasUrl = localStorage.getItem("GAS_WEB_APP_URL");
-    if (gasUrl) {
+    const hasUnsynced = localStorage.getItem("GAS_HAS_UNSYNCED_CHANGES");
+    
+    // Cegah penarikan otomatis jika ada perubahan lokal yang belum ter-sync sempurna (menghindari penimpaan data offline/baru)
+    if (gasUrl && hasUnsynced !== "true") {
       const startupSync = async () => {
         try {
           let json: any = null;
@@ -382,7 +396,7 @@ export default function App() {
               <Lock className="w-6 h-6 animate-pulse" />
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight font-display">Portal Administrasi Dusun</h2>
-            <p className="text-xs text-slate-400">Sistem Informasi, Mutasi LAMPID & Kas Iuran Dusun 3</p>
+            <p className="text-xs text-slate-400">Sistem Informasi, Mutasi LAMPID & Kas Iuran Sukamaju</p>
           </div>
 
           <form onSubmit={handleLoginSubmit} className="space-y-4 relative z-10">
@@ -454,31 +468,40 @@ export default function App() {
 
           {/* Guidelines / Helper Box */}
           <div className="bg-slate-950/60 border border-slate-850 rounded-xl p-3.5 space-y-2 text-2xs text-slate-400 leading-relaxed font-sans shadow-inner">
-            <span className="font-bold text-slate-300 block">💡 Kata Sandi Default (Simulasi):</span>
+            <div className="flex justify-between items-center pb-1">
+              <span className="font-bold text-slate-300 block">💡 Kata Sandi Default (Simulasi):</span>
+              <button 
+                type="button"
+                onClick={() => setShowSimulatedCredentials(!showSimulatedCredentials)}
+                className="text-[10px] text-emerald-400 hover:underline font-semibold bg-slate-900 px-2 py-0.5 rounded border border-slate-800"
+              >
+                {showSimulatedCredentials ? "Sembunyikan" : "Tampilkan"}
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
               <div className="p-1.5 bg-slate-900/60 rounded border border-slate-800">
                 <span className="text-[9px] text-slate-500 block">User: kadus</span>
-                <span className="text-emerald-400 font-bold">admin123</span>
+                <span className="text-emerald-400 font-bold">{showSimulatedCredentials ? "admin123" : "••••••••"}</span>
               </div>
               <div className="p-1.5 bg-slate-900/60 rounded border border-slate-800">
                 <span className="text-[9px] text-slate-500 block">User: rw01</span>
-                <span className="text-blue-400 font-bold">rw01</span>
+                <span className="text-blue-400 font-bold">{showSimulatedCredentials ? "rw01" : "••••"}</span>
               </div>
               <div className="p-1.5 bg-slate-900/60 rounded border border-slate-800">
                 <span className="text-[9px] text-slate-500 block">User: rw02</span>
-                <span className="text-blue-400 font-bold">rw02</span>
+                <span className="text-blue-400 font-bold">{showSimulatedCredentials ? "rw02" : "••••"}</span>
               </div>
               <div className="p-1.5 bg-slate-900/60 rounded border border-slate-800">
                 <span className="text-[9px] text-slate-500 block">User: rw03</span>
-                <span className="text-blue-400 font-bold">rw03</span>
+                <span className="text-blue-400 font-bold">{showSimulatedCredentials ? "rw03" : "••••"}</span>
               </div>
               <div className="p-1.5 bg-slate-900/60 rounded border border-slate-800">
                 <span className="text-[9px] text-slate-500 block">User: rw04</span>
-                <span className="text-blue-400 font-bold">rw04</span>
+                <span className="text-blue-400 font-bold">{showSimulatedCredentials ? "rw04" : "••••"}</span>
               </div>
               <div className="p-1.5 bg-slate-900/60 rounded border border-slate-800">
                 <span className="text-[9px] text-slate-500 block">User: rw05</span>
-                <span className="text-blue-400 font-bold">rw05</span>
+                <span className="text-blue-400 font-bold">{showSimulatedCredentials ? "rw05" : "••••"}</span>
               </div>
             </div>
             <p className="text-[9px] text-slate-500 mt-1">
@@ -555,7 +578,7 @@ export default function App() {
                 DS
               </div>
               <div>
-                <h1 className="text-sm font-semibold tracking-wide text-white font-display">Dusun 3</h1>
+                <h1 className="text-sm font-semibold tracking-wide text-white font-display">Dusun Sukamaju</h1>
                 <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Dashboard Administrasi</span>
               </div>
             </div>
@@ -829,7 +852,7 @@ export default function App() {
               {/* Profile sub-header panel */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-emerald-900 text-emerald-100 p-6 rounded-2xl shadow-sm border border-emerald-800">
                 <div className="md:col-span-2 space-y-1">
-                  <span className="text-[10px] font-bold tracking-widest text-emerald-300 uppercase block">DUSUN 3 ADMINISTRASI</span>
+                  <span className="text-[10px] font-bold tracking-widest text-emerald-300 uppercase block">DUSUN SUKAMAJU ADMINISTRASI</span>
                   <h2 className="text-2xl font-bold text-white font-display">Selamat datang kembali, {currentUser.nama}!</h2>
                   <p className="text-sm text-emerald-200 mt-1 leading-relaxed">
                     Sistem audit kependudukan dan transparansi keuangan 5 wilayah RW. Pantau semua peristiwa LAMPID serta pengajuan bansos warga dalam satu antarmuka terenkripsi.
@@ -968,7 +991,7 @@ export default function App() {
               <input
                 type={showSwitchPassword ? "text" : "password"}
                 autoFocus
-                placeholder={`Masukan Sandi !!...`}
+                placeholder="Masukkan kata sandi..."
                 value={switchPasswordInput}
                 onChange={(e) => {
                   setSwitchPasswordInput(e.target.value);
