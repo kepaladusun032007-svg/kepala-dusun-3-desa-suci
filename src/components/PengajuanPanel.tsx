@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Warga, RW, Pengajuan, User, PengajuanStatus, PengajuanJenis } from "../types";
 import { PRESET_PHOTOS } from "../dataStore";
 import { compressImage } from "../utils/imageCompressor";
-import { Plus, CheckCircle2, XCircle, AlertCircle, FileText, Image as ImageIcon, Send, Trash2, Edit3, MessageSquare, Camera, Eye, X } from "lucide-react";
+import { Plus, CheckCircle2, XCircle, AlertCircle, FileText, Image as ImageIcon, Send, Trash2, Edit3, MessageSquare, Camera, Eye, X, ExternalLink } from "lucide-react";
 
 interface PengajuanPanelProps {
   warga: Warga[];
@@ -59,10 +59,14 @@ export default function PengajuanPanel({
   const [viewingSubmit, setViewingSubmit] = useState<Pengajuan | null>(null);
   const [adminComment, setAdminComment] = useState("");
 
+  // Lightbox view state for attachments to bypass Chrome popup blocks
+  const [activeLightboxImg, setActiveLightboxImg] = useState<string | null>(null);
+
   // Filter pengajuan based on role restraints
   const filteredSubmissions = pengajuan.filter(p => {
     // 1. RBAC Check: Ketua RW only sees bids from their own RW
-    if (currentUser.role === "User" && p.rwId !== currentUser.rwId) {
+    if (currentUser.role === "User" && 
+        String(p.rwId || "").trim().toLowerCase() !== String(currentUser.rwId || "").trim().toLowerCase()) {
       return false;
     }
     // 2. Tab Filter
@@ -144,7 +148,7 @@ export default function PengajuanPanel({
     }
     setEditingProposalId(p.id);
     setSelectedApplicantWargaId(p.wargaId);
-    const applicant = warga.find(w => w.id === p.wargaId);
+    const applicant = warga.find(w => String(w.id).trim() === String(p.wargaId).trim());
     setSearchQuery(applicant ? applicant.nama : "");
     setFormJenis(p.jenis);
     setFormDeskripsi(p.deskripsi);
@@ -318,7 +322,7 @@ export default function PengajuanPanel({
           </div>
         ) : (
           filteredSubmissions.map((p) => {
-            const applicantWarga = warga.find(w => w.id === p.wargaId);
+            const applicantWarga = warga.find(w => String(w.id).trim() === String(p.wargaId).trim());
             return (
               <div 
                 key={p.id} 
@@ -689,7 +693,7 @@ export default function PengajuanPanel({
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2">
                 <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">INFORMASI PEMOHON</span>
                 {(() => {
-                  const applicant = warga.find(w => w.id === selectedDetailSubmission.wargaId);
+                  const applicant = warga.find(w => String(w.id).trim() === String(selectedDetailSubmission.wargaId).trim());
                   if (!applicant) return <p className="text-xs text-rose-500 italic">Data warga tidak ditemukan / Dihapus</p>;
                   return (
                     <div className="text-xs grid grid-cols-2 gap-y-2 gap-x-4">
@@ -730,7 +734,7 @@ export default function PengajuanPanel({
                     {selectedDetailSubmission.fotoList.map((foto, idx) => (
                       <div 
                         key={idx} 
-                        onClick={() => window.open(foto)}
+                        onClick={() => setActiveLightboxImg(foto)}
                         className="h-20 border rounded-lg overflow-hidden bg-slate-100 cursor-zoom-in hover:opacity-95 shadow-2xs group relative"
                         title="Klik untuk lihat ukuran penuh"
                       >
@@ -812,7 +816,7 @@ export default function PengajuanPanel({
 
             <div className="p-5 space-y-4">
               <div className="bg-slate-50 p-3.5 rounded-lg border space-y-1 text-xs">
-                <div><span className="text-slate-400 font-medium">Pemohon:</span> <strong className="text-slate-800">{warga.find(w => w.id === viewingSubmit.wargaId)?.nama}</strong></div>
+                <div><span className="text-slate-400 font-medium">Pemohon:</span> <strong className="text-slate-800">{warga.find(w => String(w.id).trim() === String(viewingSubmit.wargaId).trim())?.nama}</strong></div>
                 <div><span className="text-slate-400 font-medium">Asal RW:</span> <strong className="text-slate-800">{viewingSubmit.rwId}</strong></div>
                 <div><span className="text-slate-400 font-medium font-sans">Kebutuhan:</span> <p className="text-slate-650 mt-1 leading-relaxed italic">"{viewingSubmit.deskripsi}"</p></div>
               </div>
@@ -857,6 +861,57 @@ export default function PengajuanPanel({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cross-browser interactive lightbox modal */}
+      {activeLightboxImg && (
+        <div 
+          className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none animate-in fade-in duration-200"
+          onClick={() => setActiveLightboxImg(null)}
+          id="custom-lightbox-portal"
+        >
+          {/* Close button with high contrast */}
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setActiveLightboxImg(null); }}
+            className="absolute top-4 right-4 bg-slate-800/80 hover:bg-slate-700/80 text-white rounded-full p-3 transition-all duration-150 border border-slate-700 hover:scale-105 shadow-md flex items-center justify-center cursor-pointer"
+            title="Tutup Preview"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Main image container */}
+          <div 
+            className="relative max-w-4xl max-h-[80vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={activeLightboxImg} 
+              alt="Pratinjau Foto Lampiran" 
+              className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain border border-slate-800/50 animate-in zoom-in-95 duration-200"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
+          {/* Bottom helper actions banner */}
+          <div 
+            className="mt-6 flex items-center gap-3 bg-slate-900/80 px-4 py-2.5 rounded-full border border-slate-800 text-xs backdrop-blur-xs shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-slate-400">Pratinjau Lampiran Foto</span>
+            <span className="h-3 w-px bg-slate-800" />
+            <a 
+              href={activeLightboxImg} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1.5 transition-colors"
+              title="Buka foto asli di tab baru"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Buka File Asli
+            </a>
           </div>
         </div>
       )}
