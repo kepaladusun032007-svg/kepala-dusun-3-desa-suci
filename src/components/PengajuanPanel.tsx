@@ -92,6 +92,7 @@ export default function PengajuanPanel({
     if (file) {
       if (formFotoList.length >= 3) {
         setFormError("Maksimal lampiran hanya diperbolehkan hingga 3 foto.");
+        e.target.value = "";
         return;
       }
       try {
@@ -102,6 +103,7 @@ export default function PengajuanPanel({
         console.error("Gagal memproses gambar:", err);
         setFormError("Gagal memuat & mengompresi gambar. Coba file lain.");
       }
+      e.target.value = "";
     }
   };
 
@@ -633,7 +635,7 @@ export default function PengajuanPanel({
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg cursor-pointer flex items-center gap-1.5"
                 >
                   <Send className="w-4 h-4" />
-                  Simpaan Berkas
+                  Simpan Berkas
                 </button>
               </div>
             </form>
