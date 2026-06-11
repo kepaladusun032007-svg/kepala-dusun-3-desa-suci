@@ -434,7 +434,7 @@ export default function LaporanPanel({
           <div class="footer-signs">
             <div></div>
             <div class="sign-col">
-              <div>Kuningan, ${formattedDate}</div>
+              <div>Garut, ${formattedDate}</div>
               <div>Kepala Dusun III,</div>
               <div style="font-weight: bold; text-decoration: underline; text-transform: uppercase;">ASEP JUHARA</div>
             </div>
