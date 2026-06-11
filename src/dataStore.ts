@@ -8,13 +8,13 @@ import { Warga, RW, Iuran, TransaksiIuran, Pengajuan, Laporan, MutasiLog, User }
 // Setup initial preloaded accounts
 export const SIMULATED_USERS: User[] = [
   { id: "u0", username: "kadus", nama: "Asep Juhara", role: "Admin", password: "Joe12hara" }, // Kepala Dusun 
-  { id: "u1", username: "rw07", nama: "Pak Miftah", role: "User", rwId: "RW 07", password: "rw07" },
-  { id: "u2", username: "rw08", nama: "Pak Darmatin", role: "User", rwId: "RW 08", password: "rw08" },
-  { id: "u3", username: "rw09", nama: "Pak Sulam Nedi", role: "User", rwId: "RW 09", password: "rw09" },
-  { id: "u4", username: "rw13", nama: "Pak Ajang", role: "User", rwId: "RW 13", password: "rw13" },
-  { id: "u5", username: "rw15", nama: "Pak Fuad", role: "User", rwId: "RW 15", password: "rw15" },
-  { id: "u6", username: "rw16", nama: "Pak endang", role: "User", rwId: "RW 16", password: "rw16" },
-  { id: "u7", username: "rw17", nama: "Pak Jajang", role: "User", rwId: "RW 17", password: "rw17" },
+  { id: "u1", username: "rw07", nama: "Pak Miftah", role: "User", rwId: "RW 07", password: "rw07m" },
+  { id: "u2", username: "rw08", nama: "Pak Darmatin", role: "User", rwId: "RW 08", password: "rw08d" },
+  { id: "u3", username: "rw09", nama: "Pak Sulam Nedi", role: "User", rwId: "RW 09", password: "rw09s" },
+  { id: "u4", username: "rw13", nama: "Pak Ajang", role: "User", rwId: "RW 13", password: "rw13a" },
+  { id: "u5", username: "rw15", nama: "Pak Fuad", role: "User", rwId: "RW 15", password: "rw15f" },
+  { id: "u6", username: "rw16", nama: "Pak endang", role: "User", rwId: "RW 16", password: "rw16e" },
+  { id: "u7", username: "rw17", nama: "Pak Jajang", role: "User", rwId: "RW 17", password: "rw17j" },
 ];
 
 export const INITIAL_RWS: RW[] = [
