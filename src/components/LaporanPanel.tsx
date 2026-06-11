@@ -6,7 +6,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Warga, RW, Laporan, User, LaporanKategori } from "../types";
 import { PRESET_PHOTOS } from "../dataStore";
-import { Plus, Check, MapPin, Eye, FileSpreadsheet, Image as ImageIcon, Send, MessageSquare, Archive, ShieldQuestion } from "lucide-react";
+import { compressImage } from "../utils/imageCompressor";
+import { Plus, Check, MapPin, Eye, FileSpreadsheet, Image as ImageIcon, Send, MessageSquare, Archive, ShieldQuestion, Trash2, Edit3, Camera, X } from "lucide-react";
 
 interface LaporanPanelProps {
   warga: Warga[];
@@ -29,6 +30,7 @@ export default function LaporanPanel({
 
   // Form states
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [editingLaporanId, setEditingLaporanId] = useState<number | null>(null);
   const [formKategori, setFormKategori] = useState<LaporanKategori>("Kegiatan");
   const [formDeskripsi, setFormDeskripsi] = useState("");
   const [selectedWargaReporter, setSelectedWargaReporter] = useState<number>(0);
@@ -52,15 +54,26 @@ export default function LaporanPanel({
     };
   }, []);
 
-  // Commentary states
+  // Detailed Modal selected item
+  const [selectedDetailLaporan, setSelectedDetailLaporan] = useState<Laporan | null>(null);
+
+  // Administrative Follow-up comments (Admin only)
   const [viewingReport, setViewingReport] = useState<Laporan | null>(null);
   const [commentText, setCommentText] = useState("");
 
-  // Filtering
+  // Filtering reports
   const filteredReports = laporan.filter(l => {
-    const matchesRw = filterRwId === "Semua" || l.rwId === filterRwId;
+    // 1. Kategori Filter
     const matchesKategori = filterKategori === "Semua" || l.kategori === filterKategori;
-    return matchesRw && matchesKategori;
+    // 2. RW Filter / RBAC Check
+    let matchesRw = false;
+    if (currentUser.role === "User") {
+      // Ketua RW only sees reports in their own RW
+      matchesRw = l.rwId === currentUser.rwId;
+    } else {
+      matchesRw = filterRwId === "Semua" || l.rwId === filterRwId;
+    }
+    return matchesKategori && matchesRw;
   });
 
   // Filter possible citizens who can be logged as "Pelapor" (Optional)
@@ -76,25 +89,24 @@ export default function LaporanPanel({
     return nameStr.includes(query) || nikStr.includes(query);
   });
 
-  // Handle Foto selection files
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Photo upload with compression
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (formFotoList.length >= 3) {
         setFormError("Maksimal lampiran hanya diperbolehkan hingga 3 foto.");
+        e.target.value = "";
         return;
       }
-      if (file.size > 1024 * 1024) {
-        setFormError("Ukuran file foto maksimal berukuran 1MB.");
-        return;
+      try {
+        setFormError("");
+        const compressedBase64 = await compressImage(file);
+        setFormFotoList([...formFotoList, compressedBase64]);
+      } catch (err) {
+        console.error("Gagal mengompresi gambar:", err);
+        setFormError("Gagal memproses gambar. Coba file gambar lain.");
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          setFormFotoList([...formFotoList, reader.result]);
-        }
-      };
-      reader.readAsDataURL(file);
+      e.target.value = "";
     }
   };
 
@@ -111,28 +123,85 @@ export default function LaporanPanel({
     setFormFotoList(formFotoList.filter((_, i) => i !== idx));
   };
 
-  // Submit Report
-  const handleCreateReport = (e: React.FormEvent) => {
+  // Open creation modal
+  const openReportModal = () => {
+    setEditingLaporanId(null);
+    setFormDeskripsi("");
+    setFormFotoList([]);
+    setSelectedWargaReporter(0);
+    setSearchQuery("");
+    setFormKategori("Kegiatan");
+    setSelectedRwReportLocation(currentUser.role === "User" ? currentUser.rwId || "RW 01" : "RW 01");
+    setFormError("");
+    setIsReportModalOpen(true);
+  };
+
+  // Open Edit modal
+  const openEditReportModal = (l: Laporan, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setEditingLaporanId(l.id);
+    setFormKategori(l.kategori);
+    setFormDeskripsi(l.deskripsi);
+    setSelectedWargaReporter(l.wargaId || 0);
+
+    const reporter = warga.find(w => w.id === l.wargaId);
+    setSearchQuery(reporter ? reporter.nama : "");
+
+    setSelectedRwReportLocation(l.rwId);
+    setFormFotoList(l.fotoList || []);
+    setFormError("");
+    setIsReportModalOpen(true);
+  };
+
+  // Save/Create report
+  const handleSaveReport = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formDeskripsi) {
       setFormError("Uraian keterangan laporan wajib ditulis.");
       return;
     }
 
-    const newId = laporan.length > 0 ? Math.max(...laporan.map(l => l.id)) + 1 : 1;
-    const newReport: Laporan = {
-      id: newId,
-      rwId: currentUser.role === "User" ? currentUser.rwId || "RW 01" : selectedRwReportLocation,
-      wargaId: selectedWargaReporter > 0 ? selectedWargaReporter : undefined,
-      kategori: formKategori,
-      deskripsi: formDeskripsi,
-      tanggal: new Date().toISOString().replace("T", " ").substring(0, 19),
-      fotoList: formFotoList,
-      status: "Diproses"
-    };
-
-    onUpdateLaporan([newReport, ...laporan]);
-    setIsReportModalOpen(false);
+    if (editingLaporanId !== null) {
+      // Edit Mode
+      const updated = laporan.map(l => {
+        if (l.id === editingLaporanId) {
+          return {
+            ...l,
+            rwId: currentUser.role === "User" ? currentUser.rwId || "RW 01" : selectedRwReportLocation,
+            wargaId: selectedWargaReporter > 0 ? selectedWargaReporter : undefined,
+            kategori: formKategori,
+            deskripsi: formDeskripsi,
+            fotoList: formFotoList
+          };
+        }
+        return l;
+      });
+      onUpdateLaporan(updated);
+      setEditingLaporanId(null);
+      setIsReportModalOpen(false);
+      // Synchronize currently viewed detail
+      const updatedDetail = updated.find(l => l.id === editingLaporanId);
+      if (updatedDetail && selectedDetailLaporan?.id === editingLaporanId) {
+        setSelectedDetailLaporan(updatedDetail);
+      }
+    } else {
+      // Create Mode
+      const newId = laporan.length > 0 ? Math.max(...laporan.map(l => l.id)) + 1 : 1;
+      const newReport: Laporan = {
+        id: newId,
+        rwId: currentUser.role === "User" ? currentUser.rwId || "RW 01" : selectedRwReportLocation,
+        wargaId: selectedWargaReporter > 0 ? selectedWargaReporter : undefined,
+        kategori: formKategori,
+        deskripsi: formDeskripsi,
+        tanggal: new Date().toISOString().replace("T", " ").substring(0, 19),
+        fotoList: formFotoList,
+        status: "Diproses"
+      };
+      onUpdateLaporan([newReport, ...laporan]);
+      setIsReportModalOpen(false);
+    }
   };
 
   // Submit Comment / Status update by Admin (Kepala Dusun)
@@ -151,6 +220,25 @@ export default function LaporanPanel({
     onUpdateLaporan(updated);
     setViewingReport(null);
     setCommentText("");
+    // Sync detailed view
+    const updatedDetail = updated.find(l => l.id === id);
+    if (updatedDetail && selectedDetailLaporan?.id === id) {
+      setSelectedDetailLaporan(updatedDetail);
+    }
+  };
+
+  // Delete handler
+  const handleDeleteReport = (id: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    if (confirm("Apakah Anda yakin ingin menghapus laporan ini secara permanen?")) {
+      const updated = laporan.filter(l => l.id !== id);
+      onUpdateLaporan(updated);
+      if (selectedDetailLaporan?.id === id) {
+        setSelectedDetailLaporan(null);
+      }
+    }
   };
 
   return (
@@ -160,19 +248,12 @@ export default function LaporanPanel({
         <div>
           <h2 className="text-xl font-semibold text-slate-800 font-display">Laporan Kegiatan & Pengaduan Warga</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Portal pendataan kegiatan RW, pelaporan musibah darurat, serta penampungan pengaduan/aspirasi warga Dusun Sukamaju.
+            Portal pendataan kegiatan kemasyarakatan, kejadian darurat, serta penampungan keluhan warga Dusun Sukamaju.
           </p>
         </div>
 
         <button
-          onClick={() => {
-            setFormDeskripsi("");
-            setFormFotoList([]);
-            setSelectedWargaReporter(0);
-            setSearchQuery("");
-            setFormError("");
-            setIsReportModalOpen(true);
-          }}
+          onClick={openReportModal}
           className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm px-4 py-2.5 rounded-lg transition-colors cursor-pointer self-start md:self-auto"
         >
           <Plus className="w-4 h-4" />
@@ -192,7 +273,7 @@ export default function LaporanPanel({
             <option value="Semua">Semua Kategori</option>
             <option value="Kegiatan">Kegiatan RW (Sosialisasi, Kerja Bakti)</option>
             <option value="Kejadian">Kejadian Luar Biasa (Darurat, Bencana)</option>
-            <option value="Pengaduan">Pengaduan Warga (Fasilitas Rusak, Aspirasi)</option>
+            <option value="Pengaduan">Pengaduan Warga (Fasilitas Rusak, Keluhan)</option>
           </select>
         </div>
 
@@ -213,61 +294,66 @@ export default function LaporanPanel({
         )}
       </div>
 
-      {/* Main card representation cards */}
+      {/* Main Grid Representation of Laporan List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredReports.length === 0 ? (
-          <div className="bg-white col-span-2 p-10 text-center text-slate-400 rounded-xl border border-dashed border-slate-200">
-            <ShieldQuestion className="w-8 h-8 mx-auto stroke-1 mb-2 text-slate-300" />
-            Belum ada laporan kegiatan atau pengaduan tercatat yang sesuai filter ini.
+          <div className="bg-white col-span-2 p-14 text-center text-slate-400 rounded-xl border border-dashed border-slate-205">
+            <ShieldQuestion className="w-9 h-9 mx-auto stroke-1 mb-2.5 text-slate-350" />
+            <p className="font-medium text-slate-650">Belum ada laporan kegiatan atau pengaduan tercatat.</p>
+            <p className="text-2xs text-slate-450 mt-1">Gunakan tombol 'Kirim Laporan Baru' untuk menyampaikan pelaporan perdana.</p>
           </div>
         ) : (
           filteredReports.map((l) => {
             const reporter = l.wargaId ? warga.find(w => w.id === l.wargaId) : null;
             return (
-              <div key={l.id} className="bg-white border border-slate-150 rounded-xl shadow-xs p-5 space-y-4 flex flex-col justify-between">
+              <div 
+                key={l.id} 
+                className="bg-white border border-slate-150 hover:border-emerald-250 rounded-xl shadow-xs hover:shadow-md p-5 flex flex-col justify-between transition-all cursor-pointer group"
+                onClick={() => setSelectedDetailLaporan(l)}
+              >
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
                       <span className={`inline-block px-2 py-0.5 rounded text-3xs font-semibold uppercase ${
                         l.kategori === "Kegiatan" ? "bg-emerald-100 text-emerald-800" :
-                        l.kategori === "Kejadian" ? "bg-rose-100 text-rose-800" : "bg-purple-100 text-purple-800"
+                        l.kategori === "Kejadian" ? "bg-rose-100 text-rose-805" : "bg-purple-100 text-purple-808"
                       }`}>
                         {l.kategori === "Kegiatan" ? "Kerja Bakti / Kegiatan RW" :
                          l.kategori === "Kejadian" ? "Kejadian Luar Biasa (Darurat)" : "Pengaduan / Aspirasi"}
                       </span>
-                      <p className="text-3xs text-slate-400 font-mono mt-1 flex items-center gap-1.5">
-                        <MapPin className="w-3 h-3 text-slate-350" />
+                      <p className="text-3xs text-slate-400 font-mono mt-1 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-slate-300" />
                         Lokasi: {l.rwId} &bull; {l.tanggal}
                       </p>
                     </div>
 
                     <span className={`inline-block px-2 py-0.5 rounded text-3xs font-bold uppercase ${
                       l.status === "Selesai" ? "bg-emerald-50 text-emerald-700" :
-                      l.status === "Arsip" ? "bg-slate-100 text-slate-700" : "bg-amber-100 text-amber-800"
+                      l.status === "Arsip" ? "bg-slate-100 text-slate-705" : "bg-amber-100 text-amber-808"
                     }`}>
                       {l.status === "Diproses" ? "Sedang Diproses" :
                        l.status === "Selesai" ? "Selesai Ditindak" : "Diarsip"}
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-600 mt-3 whitespace-pre-wrap leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
+                  <p className="text-xs text-slate-550 mt-3.5 whitespace-pre-wrap leading-relaxed bg-slate-50/75 p-3 rounded-lg border border-slate-100 italic line-clamp-3">
                     "{l.deskripsi}"
                   </p>
 
-                  {/* Sub reporter mapping if available */}
+                  {/* Sub reporter info */}
                   {reporter && (
-                    <span className="text-[10px] text-slate-450 block mt-2.5">
-                      Pelapor / Pengadu Warga: <strong>{reporter.nama}</strong> (NIK {reporter.nik})
+                    <span className="text-[10px] text-slate-450 block mt-3">
+                      Pelapor: <strong>{reporter.nama}</strong>
                     </span>
                   )}
 
-                  {/* Photos list thumbnails */}
+                  {/* Photos list thumbnails preview */}
                   {l.fotoList && l.fotoList.length > 0 && (
-                    <div className="mt-4 space-y-1">
-                      <span className="text-[10px] font-semibold text-slate-405 uppercase tracking-wide">Lampiran Foto Dokumentasi ({l.fotoList.length}):</span>
-                      <div className="flex gap-2.5">
+                    <div className="mt-3.5 space-y-1">
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Lampiran Dokumentasi:</span>
+                      <div className="flex gap-1.5">
                         {l.fotoList.map((foto, fIdx) => (
-                          <div key={fIdx} className="h-12 w-16 bg-slate-100 border rounded overflow-hidden cursor-pointer hover:opacity-90" onClick={() => window.open(foto)}>
+                          <div key={fIdx} className="h-11 w-16 bg-slate-100 border rounded overflow-hidden">
                             <img src={foto} className="w-full h-full object-cover" alt="Dokumentasi Laporan" referrerPolicy="no-referrer" />
                           </div>
                         ))}
@@ -275,28 +361,62 @@ export default function LaporanPanel({
                     </div>
                   )}
 
-                  {/* Comments from Administration Admin Dusun */}
+                  {/* Comments */}
                   {l.komentarAdmin && (
-                    <div className="mt-4 p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 flex items-start gap-2 text-xs text-indigo-950">
-                      <MessageSquare className="w-4 h-4 text-indigo-505 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="block font-semibold">Tindak Lanjut & Tanggapan Dusun:</strong>
-                        {l.komentarAdmin}
-                      </div>
+                    <div className="mt-3.5 p-2.5 bg-indigo-50/40 rounded-lg border border-indigo-100 text-xs text-indigo-900 line-clamp-2">
+                      <strong>Tanggapan Dusun:</strong> {l.komentarAdmin}
                     </div>
                   )}
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
-                  {currentUser.role === "Admin" && l.status !== "Selesai" && (
+                {/* Footer action tools */}
+                <div 
+                  className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="text-3xs text-slate-400 font-mono">Kode Laporan: #{l.id}</span>
+                  
+                  <div className="flex items-center gap-1.5">
+                    {/* View details */}
                     <button
-                      onClick={() => { setViewingReport(l); setCommentText(l.komentarAdmin || ""); }}
-                      className="text-xs bg-slate-800 hover:bg-slate-900 text-white font-semibold px-3.5 py-1.5 rounded transition-all cursor-pointer flex items-center gap-1"
+                      onClick={() => setSelectedDetailLaporan(l)}
+                      className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-slate-50 rounded transition-colors cursor-pointer"
+                      title="Lihat Detail Laporan"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      Tanggapi Laporan
+                      <Eye className="w-4 h-4" />
                     </button>
-                  )}
+
+                    {/* Edit is allowed for creator/admin */}
+                    {((currentUser.role === "User" && l.rwId === currentUser.rwId && l.status === "Diproses") || currentUser.role === "Admin") && (
+                      <button
+                        onClick={() => openEditReportModal(l)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-650 hover:bg-slate-50 rounded transition-colors cursor-pointer"
+                        title="Edit Laporan"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    {/* Delete and Cancel */}
+                    {((currentUser.role === "User" && l.rwId === currentUser.rwId && l.status === "Diproses") || currentUser.role === "Admin") && (
+                      <button
+                        onClick={() => handleDeleteReport(l.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-650 hover:bg-slate-50 rounded transition-colors cursor-pointer"
+                        title="Hapus Laporan"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    {currentUser.role === "Admin" && l.status !== "Selesai" && (
+                      <button
+                        onClick={() => { setViewingReport(l); setCommentText(l.komentarAdmin || ""); }}
+                        className="text-[10px] bg-slate-800 hover:bg-slate-900 text-white font-semibold px-3 py-1.5 rounded transition-all cursor-pointer shadow-xs ml-1"
+                      >
+                        Tanggapi
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -304,63 +424,68 @@ export default function LaporanPanel({
         )}
       </div>
 
-      {/* Creation Modal form */}
+      {/* Creation & Editing Modal */}
       {isReportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 max-h-[92vh] flex flex-col text-slate-705">
             <div className="bg-indigo-900 text-white px-5 py-4 flex items-center justify-between">
-              <h3 className="font-semibold text-base font-display">Penyusunan Laporan & Pengaduan RT/RW</h3>
-              <button onClick={() => setIsReportModalOpen(false)} className="text-white hover:text-white/85 text-lg font-bold cursor-pointer">&times;</button>
+              <h3 className="font-semibold text-base font-display">
+                {editingLaporanId !== null ? "Ubah/Edit Laporan & Keluhan" : "Kirim Formulir Laporan Baru"}
+              </h3>
+              <button 
+                onClick={() => setIsReportModalOpen(false)} 
+                className="text-white hover:text-white/80 p-1 rounded-full hover:bg-indigo-950 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleCreateReport} className="p-5 space-y-4 text-slate-700">
+            <form onSubmit={handleSaveReport} className="p-5 space-y-4 overflow-y-auto flex-1">
               {formError && (
                 <div className="p-2.5 bg-rose-50 border border-rose-150 text-rose-700 text-xs rounded-lg">{formError}</div>
               )}
 
-              <div className="grid grid-cols-2 gap-3.5">
+              {currentUser.role === "Admin" && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-650">Kategori Laporan *</label>
-                  <select
-                    value={formKategori}
-                    onChange={(e) => setFormKategori(e.target.value as LaporanKategori)}
-                    className="w-full bg-slate-50 text-slate-850 text-sm px-3.5 py-2.5 rounded-lg border mt-1"
-                  >
-                    <option value="Kegiatan">Kegiatan RW (Dinas, Kerja Bakti)</option>
-                    <option value="Kejadian">Kejadian Darurat (Kebencanaan)</option>
-                    <option value="Pengaduan">Pengaduan Umum (Infrastruktur Rusak)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-650">Lokasi / Wilayah RW *</label>
+                  <label className="block text-xs font-semibold text-slate-650">Klaim Asal RW Lokasi Kejadian *</label>
                   <select
                     value={selectedRwReportLocation}
                     onChange={(e) => setSelectedRwReportLocation(e.target.value)}
-                    disabled={currentUser.role === "User"}
-                    className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2.5 rounded-lg border mt-1"
+                    className="w-full bg-slate-50 text-slate-800 text-sm px-3 py-2.5 rounded-lg border mt-1"
                   >
                     {rws.map(rw => (
                       <option key={rw.id} value={rw.id}>{rw.id} ({rw.namaKetua})</option>
                     ))}
                   </select>
                 </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-650">Pilih Kategori Laporan *</label>
+                <select
+                  value={formKategori}
+                  onChange={(e) => setFormKategori(e.target.value as LaporanKategori)}
+                  className="w-full bg-slate-50 text-slate-800 text-sm px-3 py-2.5 rounded-lg border mt-1"
+                >
+                  <option value="Kegiatan">Kegiatan RW (Kerja Bakti, Posyandu, Rapat Pleno)</option>
+                  <option value="Kejadian">Kejadian Luar Biasa (Kebencanaan, Kebakaran, Musibah Sosial, Keamanan)</option>
+                  <option value="Pengaduan">Pengaduan Warga (Fasilitas Umum Rusak, Masalah Sampah, Keluhan Bersama)</option>
+                </select>
               </div>
 
-              <div ref={dropdownRef} className="relative z-25">
-                <label className="block text-xs font-semibold text-slate-650">Warga Pelapor (Opsional)</label>
-                
+              <div ref={dropdownRef} className="relative z-30">
+                <label className="block text-xs font-semibold text-slate-650">Identitas Pelapor Warga (Opsional / Anonim jika Kosong)</label>
                 <div className="relative mt-1">
                   <input
                     type="text"
-                    placeholder="🔎 Ketik nama atau NIK warga..."
+                    placeholder="🔎 Cari nama warga pengadu dari basis data..."
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setIsDropdownOpen(true);
                     }}
                     onFocus={() => setIsDropdownOpen(true)}
-                    className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2.5 pr-10 rounded-lg border focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2.5 pr-10 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                   {searchQuery && (
                     <button
@@ -378,26 +503,9 @@ export default function LaporanPanel({
                 </div>
 
                 {isDropdownOpen && (
-                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-lg bg-white py-1 shadow-lg border border-slate-150 text-xs">
-                    {/* Anonim option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedWargaReporter(0);
-                        setSearchQuery("");
-                        setIsDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 transition-colors cursor-pointer border-b border-slate-100 flex flex-col ${
-                        selectedWargaReporter === 0 
-                          ? "bg-indigo-50 text-indigo-900 font-semibold" 
-                          : "hover:bg-slate-50 text-slate-600"
-                      }`}
-                    >
-                      <span className="text-xs font-semibold">-- Anonim / Diwakilkan Ketua RW --</span>
-                    </button>
-
+                  <div className="absolute z-55 mt-1 max-h-40 w-full overflow-auto rounded-lg bg-white py-1 shadow-lg border border-slate-150 text-xs">
                     {filteredWargaOptions.length === 0 ? (
-                      <div className="px-4 py-3 text-slate-450 italic text-center">
+                      <div className="px-4 py-3 text-slate-400 italic text-center">
                         Tidak ada data warga ditemukan
                       </div>
                     ) : (
@@ -419,7 +527,7 @@ export default function LaporanPanel({
                             }`}
                           >
                             <span className="text-xs font-medium">{w.nama}</span>
-                            <span className="text-[10px] text-slate-400 mt-0.5">NIK: {w.nik} &bull; {w.rwId}</span>
+                            <span className="text-[10px], text-slate-400 mt-0.5">NIK: {w.nik} &bull; {w.rwId}</span>
                           </button>
                         );
                       })
@@ -427,7 +535,6 @@ export default function LaporanPanel({
                   </div>
                 )}
 
-                {/* Selected Resident Card indicator */}
                 {selectedWargaReporter > 0 && (
                   (() => {
                     const activeP = selectableWarga.find(w => w.id === selectedWargaReporter);
@@ -436,9 +543,9 @@ export default function LaporanPanel({
                       <div className="mt-2.5 bg-indigo-50/50 border border-indigo-100 p-2.5 rounded-lg flex items-center justify-between text-xs">
                         <div>
                           <p className="text-slate-800 font-semibold">{activeP.nama}</p>
-                          <p className="text-[10px] text-slate-450 mt-0.5">NIK {activeP.nik} &bull; {activeP.rwId} &bull; Status: {activeP.hubungan}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">NIK {activeP.nik} &bull; {activeP.rwId} &bull; Status: {activeP.hubungan}</p>
                         </div>
-                        <span className="bg-indigo-100 text-indigo-900 text-[9px] font-bold px-2 py-0.5 rounded uppercase font-sans">Pelapor Terpilih</span>
+                        <span className="bg-indigo-105 text-indigo-900 text-[9px] font-bold px-2 py-0.5 rounded uppercase">Pelapor Aktif</span>
                       </div>
                     );
                   })()
@@ -453,15 +560,15 @@ export default function LaporanPanel({
                   value={formDeskripsi}
                   onChange={(e) => setFormDeskripsi(e.target.value)}
                   rows={4}
-                  className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2 rounded-lg border mt-1 focus:outline-none"
+                  className="w-full bg-slate-50 text-slate-800 text-sm px-3.5 py-2 rounded-lg border mt-1 focus:outline-none focus:bg-white text-slate-700"
                 />
               </div>
 
-              {/* Photo upload / preset block */}
+              {/* Photo upload attachment with CAMERA and GALLERY options */}
               <div>
                 <label className="block text-xs font-semibold text-slate-650 mb-1.5">Unggah Foto Lampiran Laporan (Hingga 3 Foto)</label>
                 
-                <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3.5">
                   {formFotoList.map((foto, idx) => (
                     <div key={idx} className="relative h-16 bg-slate-100 rounded border overflow-hidden">
                       <img src={foto} className="w-full h-full object-cover" alt="Upload Preview" referrerPolicy="no-referrer" />
@@ -476,22 +583,41 @@ export default function LaporanPanel({
                   ))}
                   
                   {formFotoList.length < 3 && (
-                    <div className="h-16 border-2 border-dashed border-slate-200 rounded flex flex-col items-center justify-center text-slate-400 bg-slate-50 relative">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handlePhotoUpload(e)}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        title="File image"
-                      />
-                      <ImageIcon className="w-4 h-4 text-slate-400" />
-                      <span className="text-[9px] mt-0.5">Unggah</span>
+                    <div className="col-span-3">
+                      <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        {/* Camera */}
+                        <label className="flex flex-col items-center justify-center p-3.5 bg-white hover:bg-emerald-50/20 border border-slate-200 hover:border-emerald-500 rounded-lg cursor-pointer transition-all text-center">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handlePhotoUpload}
+                            className="hidden"
+                          />
+                          <Camera className="w-5 h-5 text-emerald-600 mb-1" />
+                          <span className="text-[11px] font-bold text-slate-700">Potret Kamera</span>
+                          <span className="text-[9px] text-slate-400 mt-0.5 font-sans">Kamera Langsung</span>
+                        </label>
+
+                        {/* Gallery */}
+                        <label className="flex flex-col items-center justify-center p-3.5 bg-white hover:bg-indigo-50/20 border border-slate-200 hover:border-indigo-650 rounded-lg cursor-pointer transition-all text-center">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                            className="hidden"
+                          />
+                          <ImageIcon className="w-5 h-5 text-indigo-700 mb-1" />
+                          <span className="text-[11px] font-bold text-slate-700">Pilih Gallery</span>
+                          <span className="text-[9px] text-slate-400 mt-0.5 font-sans">Kompres Otomatis</span>
+                        </label>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-slate-50 p-2.5 rounded-lg border text-[11px] text-slate-500">
-                  <span className="font-semibold block text-slate-600 mb-1">Simulasi Generator Foto Cepat:</span>
+                <div className="bg-slate-50 p-2.5 rounded-lg border text-[11px] text-slate-505 shadow-2xs">
+                  <span className="font-semibold block text-slate-650 mb-1">Simulasi Generator Foto Cepat:</span>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => injectPresetPhoto("kerjaBakti")} className="bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded text-2xs cursor-pointer">Foto Kerja Bakti</button>
                     <button type="button" onClick={() => injectPresetPhoto("jalanRusak")} className="bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded text-2xs cursor-pointer">Foto Jalan Rusak</button>
@@ -509,10 +635,10 @@ export default function LaporanPanel({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-900 hover:bg-indigo-955 text-white font-medium rounded-lg cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 bg-indigo-900 hover:bg-indigo-950 text-white font-medium rounded-lg cursor-pointer flex items-center gap-1.5"
                 >
                   <Send className="w-4 h-4" />
-                  Kirim Lapor
+                  Simpan Laporan
                 </button>
               </div>
             </form>
@@ -520,9 +646,159 @@ export default function LaporanPanel({
         </div>
       )}
 
+      {/* Detail overlay Modal */}
+      {selectedDetailLaporan && (
+        <div className="fixed inset-0 z-40 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 max-h-[92vh] flex flex-col text-slate-700 animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="bg-slate-800 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-semibold text-sm font-mono">DRAF JURNAL DETAIL LAPORAN #{selectedDetailLaporan.id}</h3>
+              </div>
+              <button 
+                onClick={() => setSelectedDetailLaporan(null)} 
+                className="text-white hover:text-white/80 p-1 rounded-full hover:bg-slate-700 cursor-pointer animate-none"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className={`inline-block px-2.5 py-0.5 rounded text-3xs font-extrabold uppercase ${
+                    selectedDetailLaporan.kategori === "Kegiatan" ? "bg-emerald-100 text-emerald-805" :
+                    selectedDetailLaporan.kategori === "Kejadian" ? "bg-rose-105 text-rose-805 animate-pulse" : "bg-purple-100 text-purple-800"
+                  }`}>
+                    {selectedDetailLaporan.kategori === "Kegiatan" ? "Sosialisasi / Kegiatan RW" :
+                     selectedDetailLaporan.kategori === "Kejadian" ? "Kejadian Darurat (911)" : "Pengaduan & Aspirasi Publik"}
+                  </span>
+                  <p className="text-[10px] text-slate-400 font-mono mt-1">Dikirimkan: {selectedDetailLaporan.tanggal}</p>
+                </div>
+
+                <span className={`inline-block px-3 py-1 rounded text-3xs font-black uppercase tracking-widest ${
+                  selectedDetailLaporan.status === "Selesai" ? "bg-emerald-100 text-emerald-800" :
+                  selectedDetailLaporan.status === "Arsip" ? "bg-slate-150 text-slate-750" : "bg-amber-100 text-amber-900"
+                }`}>
+                  {selectedDetailLaporan.status === "Diproses" ? "Sedang Diproses" :
+                   selectedDetailLaporan.status === "Selesai" ? "Selesai Ditindak lanjuti" : "Diarsip"}
+                </span>
+              </div>
+
+              {/* Location metadata */}
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-2.5 text-xs text-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 tracking-wider block">INFORMASI PELAPOR & WILAYAH</span>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                  <div>
+                    <span className="text-slate-400">Wilayah Rujukan:</span>
+                    <p className="font-semibold mt-0.5">{selectedDetailLaporan.rwId}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Status Kejadian:</span>
+                    <p className="font-semibold text-amber-800 mt-0.5">{selectedDetailLaporan.status}</p>
+                  </div>
+                  <div className="col-span-2 border-t pt-2 mt-1">
+                    <span className="text-slate-400 block mb-0.5">Pelapor Warga Terdata:</span>
+                    {(() => {
+                      const rep = selectedDetailLaporan.wargaId ? warga.find(w => w.id === selectedDetailLaporan.wargaId) : null;
+                      if (rep) {
+                        return <span className="font-bold text-slate-800">{rep.nama} (NIK {rep.nik} &bull; {rep.rwId})</span>;
+                      }
+                      return <span className="text-slate-450 italic">Anonim (Tanpa Mencantumkan Identitas)</span>;
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 tracking-wider block">URAIAN DETAIL LAPORAN</span>
+                <p className="text-xs text-slate-650 leading-relaxed bg-slate-50 border border-slate-100 rounded-xl p-4 whitespace-pre-wrap italic">
+                  "{selectedDetailLaporan.deskripsi}"
+                </p>
+              </div>
+
+              {/* Documentation photos */}
+              {selectedDetailLaporan.fotoList && selectedDetailLaporan.fotoList.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 tracking-wider block">DOKUMENTASI FOTO BUKTI FOTO ({selectedDetailLaporan.fotoList.length})</span>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {selectedDetailLaporan.fotoList.map((foto, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => window.open(foto)}
+                        className="h-20 border rounded-lg overflow-hidden bg-slate-100 cursor-zoom-in hover:opacity-95 shadow-2xs group relative"
+                        title="Zoom Foto"
+                      >
+                        <img src={foto} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt="Lampiran" referrerPolicy="no-referrer" />
+                        <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-3xs font-semibold backdrop-blur-xs transition-opacity">Zoom</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Remarks commentary */}
+              {selectedDetailLaporan.komentarAdmin && (
+                <div className="bg-indigo-50/55 p-4 rounded-xl border border-indigo-100 space-y-1 text-xs text-indigo-950">
+                  <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider flex items-center gap-1.5 leading-none">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    TINDAK LANJUT / TANGGAPAN DARI KEPALA DUSUN
+                  </span>
+                  <p className="leading-relaxed mt-1">{selectedDetailLaporan.komentarAdmin}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions tools footer */}
+            <div className="p-4 bg-slate-50 border-t flex flex-wrap items-center justify-between gap-3 text-sm">
+              <div className="flex gap-2">
+                {((currentUser.role === "User" && selectedDetailLaporan.rwId === currentUser.rwId && selectedDetailLaporan.status === "Diproses") || currentUser.role === "Admin") && (
+                  <button
+                    onClick={() => { setSelectedDetailLaporan(null); openEditReportModal(selectedDetailLaporan); }}
+                    className="px-3.5 py-1.5 bg-slate-150 hover:bg-indigo-100 text-indigo-900 font-bold rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 text-xs"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    Edit Laporan
+                  </button>
+                )}
+
+                {((currentUser.role === "User" && selectedDetailLaporan.rwId === currentUser.rwId && selectedDetailLaporan.status === "Diproses") || currentUser.role === "Admin") && (
+                  <button
+                    onClick={() => handleDeleteReport(selectedDetailLaporan.id)}
+                    className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 text-xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Hapus Laporan
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {currentUser.role === "Admin" && selectedDetailLaporan.status !== "Selesai" && (
+                  <button
+                    onClick={() => { setSelectedDetailLaporan(null); setViewingReport(selectedDetailLaporan); setCommentText(selectedDetailLaporan.komentarAdmin || ""); }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  >
+                    Tanggapi Laporan
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setSelectedDetailLaporan(null)}
+                  className="px-4 py-1.5 bg-white border border-slate-205 hover:bg-slate-100 font-bold text-slate-700 text-xs rounded-lg cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tanggapi / Comment Modal boxes */}
       {viewingReport && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 text-slate-700">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100">
             <div className="bg-slate-800 text-white px-5 py-4 flex items-center justify-between">
               <h3 className="font-semibold text-base font-display">Tindak Lanjut & Tanggapan Dusun</h3>
@@ -532,7 +808,7 @@ export default function LaporanPanel({
             <div className="p-5 space-y-4">
               <div className="bg-slate-50 p-3.5 rounded-lg border space-y-1 text-xs">
                 <div><span className="text-slate-400 font-medium">Laporan:</span> <strong className="text-slate-800 italic">"{viewingReport.deskripsi}"</strong></div>
-                <div><span className="text-slate-400 font-medium">Asal RW:</span> <strong className="text-slate-800">{viewingReport.rwId}</strong></div>
+                <div><span className="text-slate-400 font-medium font-sans">Asal RW:</span> <strong className="text-slate-800">{viewingReport.rwId}</strong></div>
               </div>
 
               <div>
