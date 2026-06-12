@@ -852,7 +852,7 @@ export default function App() {
               {/* Profile sub-header panel */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-emerald-900 text-emerald-100 p-6 rounded-2xl shadow-sm border border-emerald-800">
                 <div className="md:col-span-2 space-y-1">
-                  <span className="text-[10px] font-bold tracking-widest text-emerald-300 uppercase block">DUSUN SUKAMAJU ADMINISTRASI</span>
+                  <span className="text-[10px] font-bold tracking-widest text-emerald-300 uppercase block">DUSUN III Desa Suci</span>
                   <h2 className="text-2xl font-bold text-white font-display">Selamat datang kembali, {currentUser.nama}!</h2>
                   <p className="text-sm text-emerald-200 mt-1 leading-relaxed">
                     Sistem audit kependudukan dan Management wilayah RW. Pantau semua peristiwa LAMPID serta pengajuan warga dalam satu antarmuka terenkripsi.
